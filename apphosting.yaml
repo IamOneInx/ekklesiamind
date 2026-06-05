@@ -1,0 +1,52 @@
+# Firebase App Hosting configuration for ekklesiaMind EMD
+# Project: ekklesiamind
+# Backend target name: ekklesiamind
+
+runConfig:
+  minInstances: 0
+  maxInstances: 10
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: VITE_FIREBASE_API_KEY
+    value: "***"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_AUTH_DOMAIN
+    value: "ekklesiamind.firebaseapp.com"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_DATABASE_URL
+    value: "https://ekklesiamind-default-rtdb.firebaseio.com"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_PROJECT_ID
+    value: "ekklesiamind"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_STORAGE_BUCKET
+    value: "ekklesiamind.firebasestorage.app"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_MESSAGING_SENDER_ID
+    value: "733732882585"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_APP_ID
+    value: "1:733732882585:web:f4c60b78fd5bfd1673d008"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_MEASUREMENT_ID
+    value: "G-5VEYMLRB9Y"
+    availability:
+      - BUILD
+      - RUNTIME

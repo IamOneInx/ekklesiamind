@@ -1,0 +1,388 @@
+.app-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 56px;
+}
+
+.hero-card,
+.panel,
+.stat-card,
+.wording-panel {
+  border: 1px solid rgba(83, 99, 72, 0.18);
+  background: rgba(255, 252, 245, 0.88);
+  box-shadow: 0 24px 70px rgba(68, 55, 33, 0.12);
+}
+
+.hero-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: end;
+  padding: clamp(28px, 5vw, 56px);
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at top right, rgba(172, 126, 70, 0.22), transparent 34%),
+    linear-gradient(135deg, #fffaf0 0%, #eef3e4 100%);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #8a6330;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 14px;
+  color: #1e3325;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.35rem, 7vw, 5.7rem);
+  line-height: 0.96;
+}
+
+h2 {
+  margin-bottom: 0;
+  color: #263b2b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+}
+
+.hero-copy {
+  max-width: 760px;
+  margin-bottom: 0;
+  color: #526150;
+  font-size: 1.18rem;
+  line-height: 1.6;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+button,
+.primary-action {
+  border-radius: 999px;
+  background: #2f5d3a;
+  color: #fffdf7;
+  padding: 13px 20px;
+  font-weight: 800;
+  box-shadow: 0 12px 24px rgba(47, 93, 58, 0.22);
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+.secondary {
+  background: #efe2c9;
+  color: #3d321f;
+  box-shadow: none;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 18px 0;
+}
+
+.stat-card {
+  padding: 22px;
+  border-radius: 22px;
+}
+
+.stat-card strong {
+  display: block;
+  color: #2f5d3a;
+  font-size: 2rem;
+}
+
+.stat-card span {
+  color: #687263;
+  font-weight: 700;
+}
+
+.layout-grid {
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.panel,
+.wording-panel {
+  border-radius: 28px;
+  padding: 24px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.mission-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mission-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid rgba(47, 93, 58, 0.13);
+  border-radius: 20px;
+  background: #fffaf0;
+  color: #263b2b;
+  padding: 16px;
+  text-align: left;
+  box-shadow: none;
+}
+
+.mission-card.selected {
+  border-color: #2f5d3a;
+  background: #f0f5e9;
+}
+
+.mission-card span,
+.mission-card small {
+  color: #647062;
+}
+
+.status {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  background: #ead6b5;
+  color: #6e4f24;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.status.active,
+.status.pickup-arrived,
+.status.appointment-arrived,
+.status.returning {
+  background: #dbeed4;
+  color: #2f5d3a;
+}
+
+.status.completed {
+  background: #e9edf0;
+  color: #58616a;
+}
+
+.route-card {
+  border-radius: 24px;
+  background: #f7f9f2;
+  padding: 20px;
+}
+
+.route-card h3 {
+  margin: 12px 0 4px;
+  color: #203828;
+  font-size: 2rem;
+}
+
+.route-line {
+  display: grid;
+  gap: 3px;
+  border-left: 4px solid #d0b17a;
+  margin: 16px 0;
+  padding-left: 14px;
+}
+
+.route-line span,
+.route-line small,
+.notes {
+  color: #6d7569;
+}
+
+.primary-action {
+  width: 100%;
+  margin: 16px 0;
+  padding: 18px 24px;
+  font-size: 1.2rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.form-grid.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: #455141;
+  font-weight: 800;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid rgba(83, 99, 72, 0.24);
+  border-radius: 15px;
+  background: #fffdf7;
+  color: #263b2b;
+  padding: 12px 13px;
+}
+
+textarea {
+  min-height: 105px;
+  resize: vertical;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(83, 99, 72, 0.18);
+  border-radius: 15px;
+  padding: 13px;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.wide-field,
+.full {
+  grid-column: 1 / -1;
+}
+
+.trip-log {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid rgba(83, 99, 72, 0.16);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.fee-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.receipt-panel {
+  background: linear-gradient(180deg, rgba(255, 252, 245, 0.95), rgba(240, 245, 233, 0.95));
+}
+
+.receipt-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 22px;
+  background: #263b2b;
+  color: #fffaf0;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+
+.receipt-total strong {
+  font-size: 2rem;
+}
+
+.receipt-preview {
+  white-space: pre-wrap;
+  border: 1px solid rgba(83, 99, 72, 0.18);
+  border-radius: 18px;
+  background: #fffdf7;
+  color: #263b2b;
+  padding: 16px;
+  line-height: 1.55;
+}
+
+.wording-panel {
+  display: grid;
+  grid-template-columns: 0.55fr 1fr;
+  gap: 22px;
+  margin-top: 18px;
+  background: #263b2b;
+  color: #fdf7ea;
+}
+
+.wording-panel h2,
+.wording-panel .eyebrow {
+  color: #fdf7ea;
+}
+
+.word-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.word-grid article {
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.09);
+  padding: 16px;
+}
+
+.word-grid span {
+  display: block;
+  color: #d0b17a;
+  margin-bottom: 6px;
+  text-decoration: line-through;
+}
+
+.word-grid strong {
+  color: #fffaf0;
+}
+
+@media (max-width: 900px) {
+  .hero-card,
+  .layout-grid,
+  .wording-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid,
+  .word-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    width: min(100% - 18px, 1180px);
+    padding-top: 10px;
+  }
+
+  .hero-card,
+  .panel,
+  .wording-panel {
+    border-radius: 22px;
+    padding: 18px;
+  }
+
+  .stats-grid,
+  .form-grid,
+  .form-grid.two,
+  .fee-grid,
+  .word-grid {
+    grid-template-columns: 1fr;
+  }
+}
