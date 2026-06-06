@@ -1,9 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
 
+const authServiceMocks = vi.hoisted(() => ({
+  registerMember: vi.fn(),
+  signInMember: vi.fn(),
+  signOutMember: vi.fn(),
+  subscribeAuthState: vi.fn(() => () => {}),
+}));
+
+vi.mock('./authService', () => authServiceMocks);
+
+const { registerMember, signInMember, signOutMember } = authServiceMocks;
+
 describe('App trip workflow', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    registerMember.mockResolvedValue({ displayName: 'Isaac Weaver', email: 'isaac@example.com' });
+    signInMember.mockResolvedValue({ displayName: '', email: 'isaac@example.com' });
+    signOutMember.mockResolvedValue(undefined);
+  });
   it('advances a scheduled trip when Start Trip is clicked', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -32,6 +49,35 @@ describe('App trip workflow', () => {
     expect(screen.getByRole('heading', { name: /Schedule Apt$/i })).toBeInTheDocument();
     expect(screen.getAllByText('Mary Beiler').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Dentist appointment').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('wires Sign Up, Sign In, and Sign Out buttons to Firebase Auth', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(screen.getByRole('textbox', { name: /EMD member name/i }));
+    await user.type(screen.getByRole('textbox', { name: /EMD member name/i }), 'Isaac Weaver');
+    await user.type(screen.getByRole('textbox', { name: /Email/i }), 'isaac@example.com');
+    await user.type(screen.getByLabelText(/Password/i), 'quiet-service-123');
+
+    await user.click(screen.getByRole('button', { name: /Sign Up/i }));
+
+    expect(registerMember).toHaveBeenCalledWith({
+      displayName: 'Isaac Weaver',
+      email: 'isaac@example.com',
+      password: 'quiet-service-123',
+    });
+    expect(await screen.findByText(/Signed in as Isaac Weaver/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Sign Out/i }));
+    expect(signOutMember).toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /Sign In/i }));
+    expect(signInMember).toHaveBeenCalledWith({
+      email: 'isaac@example.com',
+      password: 'quiet-service-123',
+    });
+    expect(await screen.findByText(/Signed in as isaac@example.com/i)).toBeInTheDocument();
   });
 
   it('shows EMD member sign-up, member-only driver map option, donation settings, and receipt printing', () => {

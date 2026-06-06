@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   calculateMissionMiles,
   calculateMissionMinutes,
@@ -9,6 +9,7 @@ import {
   summarizeMissions,
 } from './missionLogic';
 import { hasFirebaseConfig } from './firebase';
+import { registerMember, signInMember, signOutMember, subscribeAuthState } from './authService';
 import './App.css';
 
 const initialMissions = [
@@ -107,10 +108,29 @@ function App() {
   const [missions, setMissions] = useState(initialMissions);
   const [selectedId, setSelectedId] = useState(initialMissions[0].id);
   const [newMission, setNewMission] = useState(blankMission);
+  const [memberForm, setMemberForm] = useState({
+    displayName: 'Isaac Weaver',
+    phone: '(555) 010-1842',
+    email: '',
+    password: '',
+  });
+  const [authUser, setAuthUser] = useState(null);
+  const [authStatus, setAuthStatus] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
   const [tripLog, setTripLog] = useState({ startTime: '', endTime: '', startOdometer: '', endOdometer: '', donationAmount: '' });
   const [donationSettings, setDonationSettings] = useState(defaultDonationSettings);
 
   const selectedMission = missions.find((mission) => mission.id === selectedId) ?? missions[0];
+  const signedInLabel = authUser ? authUser.displayName || authUser.email || 'EMD member' : '';
+
+  useEffect(() => subscribeAuthState((user) => {
+    setAuthUser(user);
+    if (user) {
+      setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
+    }
+  }), []);
+
   const report = useMemo(() => summarizeMissions(missions), [missions]);
   const action = selectedMission ? getNextMissionAction(selectedMission.status, selectedMission.returnNeeded) : null;
   const previewMiles = selectedMission?.miles || 20;
@@ -200,6 +220,55 @@ function App() {
     });
   }
 
+  async function handleMemberSignUp() {
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      const user = await registerMember({
+        displayName: memberForm.displayName,
+        email: memberForm.email,
+        password: memberForm.password,
+      });
+      setAuthUser(user);
+      setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
+    } catch (error) {
+      setAuthError(getAuthErrorMessage(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleMemberSignIn() {
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      const user = await signInMember({
+        email: memberForm.email,
+        password: memberForm.password,
+      });
+      setAuthUser(user);
+      setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
+    } catch (error) {
+      setAuthError(getAuthErrorMessage(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleMemberSignOut() {
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      await signOutMember();
+      setAuthUser(null);
+      setAuthStatus('Signed out.');
+    } catch (error) {
+      setAuthError(getAuthErrorMessage(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="hero-card">
@@ -236,17 +305,23 @@ function App() {
           </div>
           <p className="notes">EMD means ekklēsia Ministry Drivers. Member sign-up protects the driver map, trip dispatching, and neighbor information.</p>
           <div className="form-grid two">
-            <Input label="EMD member name" value="Isaac Weaver" onChange={() => {}} />
-            <Input label="Phone" value="(555) 010-1842" onChange={() => {}} />
+            <Input label="EMD member name" value={memberForm.displayName} onChange={(value) => setMemberForm({ ...memberForm, displayName: value })} />
+            <Input label="Phone" value={memberForm.phone} onChange={(value) => setMemberForm({ ...memberForm, phone: value })} />
+            <Input label="Email" type="email" value={memberForm.email} onChange={(value) => setMemberForm({ ...memberForm, email: value })} />
+            <Input label="Password" type="password" value={memberForm.password} onChange={(value) => setMemberForm({ ...memberForm, password: value })} />
           </div>
           <label className="checkbox-row">
             <input type="checkbox" defaultChecked />
             I serve as an ekklēsia Ministry Driver member
           </label>
+          {authStatus && <p className="notes success" aria-live="polite">{authStatus}</p>}
+          {authError && <p className="notes error" role="alert">{authError}</p>}
           <div className="button-row">
-            <button type="button">Sign Up</button>
-            <button type="button" className="secondary">Sign In</button>
+            <button type="button" onClick={handleMemberSignUp} disabled={authBusy || !hasFirebaseConfig}>Sign Up</button>
+            <button type="button" className="secondary" onClick={handleMemberSignIn} disabled={authBusy || !hasFirebaseConfig}>Sign In</button>
+            {authUser && <button type="button" className="secondary" onClick={handleMemberSignOut} disabled={authBusy}>Sign Out</button>}
           </div>
+          <p className="notes">{hasFirebaseConfig ? `Firebase Auth email/password sign-in is connected${signedInLabel ? ` for ${signedInLabel}` : ''}.` : 'Firebase Auth needs app config before sign-in works.'}</p>
         </div>
 
         <div className="panel">
@@ -457,6 +532,20 @@ function formatDateTime(value) {
 
 function formatStatus(status) {
   return status.split('-').map((word) => word[0].toUpperCase() + word.slice(1)).join(' ');
+}
+
+function getAuthErrorMessage(error) {
+  if (!error?.code) return 'Authentication did not complete. Please try again.';
+
+  const messages = {
+    'auth/email-already-in-use': 'That email is already signed up. Use Sign In instead.',
+    'auth/invalid-email': 'Enter a valid email address.',
+    'auth/invalid-credential': 'Email or password was not accepted.',
+    'auth/missing-password': 'Enter a password.',
+    'auth/weak-password': 'Use a password with at least 6 characters.',
+  };
+
+  return messages[error.code] || 'Authentication did not complete. Please try again.';
 }
 
 export default App;
