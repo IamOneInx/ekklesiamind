@@ -62,9 +62,9 @@ export function summarizeMissions(missions) {
 }
 
 export function calculateSuggestedDonation({ miles = 0, waitingHours = 0, mileageRate = 0, hourlyServiceRate = 0, extraFees = {} }) {
-  const mileageAmount = roundToTwo(safeNumber(miles) * safeNumber(mileageRate));
-  const serviceAmount = roundToTwo(safeNumber(waitingHours) * safeNumber(hourlyServiceRate));
-  const extraFeeAmount = roundToTwo(Object.values(extraFees).reduce((total, fee) => total + safeNumber(fee), 0));
+  const mileageAmount = roundToTwo(nonNegativeNumber(miles) * nonNegativeNumber(mileageRate));
+  const serviceAmount = roundToTwo(nonNegativeNumber(waitingHours) * nonNegativeNumber(hourlyServiceRate));
+  const extraFeeAmount = roundToTwo(Object.values(extraFees).reduce((total, fee) => total + nonNegativeNumber(fee), 0));
 
   return {
     mileageAmount,
@@ -74,8 +74,29 @@ export function calculateSuggestedDonation({ miles = 0, waitingHours = 0, mileag
   };
 }
 
-export function formatTripReceipt({ neighborName = 'Neighbor', purpose = 'Trip', miles = 0, waitingHours = 0, donationAmount = 0, extraFees = {} }) {
-  const extraFeeAmount = roundToTwo(Object.values(extraFees).reduce((total, fee) => total + safeNumber(fee), 0));
+export function calculateTaxiFare({ miles = 0, waitingHours = 0, baseFare = 4.5, mileageRate = 3.25, hourlyWaitRate = 30, extraFees = {} }) {
+  const baseAmount = roundToTwo(nonNegativeNumber(baseFare));
+  const mileageAmount = roundToTwo(nonNegativeNumber(miles) * nonNegativeNumber(mileageRate));
+  const waitingAmount = roundToTwo(nonNegativeNumber(waitingHours) * nonNegativeNumber(hourlyWaitRate));
+  const extraFeeAmount = roundToTwo(Object.values(extraFees).reduce((total, fee) => total + nonNegativeNumber(fee), 0));
+
+  return {
+    baseAmount,
+    mileageAmount,
+    waitingAmount,
+    extraFeeAmount,
+    total: roundToTwo(baseAmount + mileageAmount + waitingAmount + extraFeeAmount),
+  };
+}
+
+export function calculateNeighborSavings(taxiFare = 0, donationAmount = 0) {
+  return roundToTwo(Math.max(nonNegativeNumber(taxiFare) - nonNegativeNumber(donationAmount), 0));
+}
+
+export function formatTripReceipt({ neighborName = 'Neighbor', purpose = 'Trip', miles = 0, waitingHours = 0, donationAmount = 0, extraFees = {}, taxiFare = 0 }) {
+  const extraFeeAmount = roundToTwo(Object.values(extraFees).reduce((total, fee) => total + nonNegativeNumber(fee), 0));
+  const taxiFareAmount = roundToTwo(nonNegativeNumber(taxiFare));
+  const savingsAmount = calculateNeighborSavings(taxiFareAmount, donationAmount);
 
   return [
     `Trip receipt for ${neighborName}`,
@@ -83,7 +104,9 @@ export function formatTripReceipt({ neighborName = 'Neighbor', purpose = 'Trip',
     `Miles: ${safeNumber(miles)}`,
     `Waiting/service hours: ${safeNumber(waitingHours)}`,
     `Extra fees: $${extraFeeAmount.toFixed(2)}`,
+    `Estimated taxi fare: $${taxiFareAmount.toFixed(2)}`,
     `Suggested donation: $${safeNumber(donationAmount).toFixed(2)}`,
+    `Estimated savings: $${savingsAmount.toFixed(2)}`,
     'Donations are voluntary.',
   ].join('\n');
 }
@@ -91,6 +114,10 @@ export function formatTripReceipt({ neighborName = 'Neighbor', purpose = 'Trip',
 function safeNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function nonNegativeNumber(value) {
+  return Math.max(safeNumber(value), 0);
 }
 
 function roundToOne(value) {

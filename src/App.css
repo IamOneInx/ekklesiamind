@@ -90,6 +90,13 @@ button:hover {
   box-shadow: none;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -303,6 +310,28 @@ textarea {
 
 .receipt-total strong {
   font-size: 2rem;
+}
+
+.savings-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 16px;
+  border: 1px solid rgba(47, 93, 58, 0.2);
+  border-radius: 20px;
+  background: #f0f5e9;
+  color: #263b2b;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+.savings-card span {
+  color: #526150;
+  font-weight: 800;
+}
+
+.savings-card strong {
+  color: #2f5d3a;
+  font-size: 1.25rem;
 }
 
 .receipt-preview {

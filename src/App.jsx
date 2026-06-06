@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import {
   calculateMissionMiles,
   calculateMissionMinutes,
+  calculateNeighborSavings,
   calculateSuggestedDonation,
+  calculateTaxiFare,
   formatTripReceipt,
   getNextMissionAction,
   summarizeMissions,
@@ -77,6 +79,9 @@ const defaultDonationSettings = {
   mileageRate: 0.7,
   hourlyServiceRate: 10,
   waitingHours: 1,
+  taxiBaseFare: 4.5,
+  taxiMileageRate: 3.25,
+  taxiHourlyWaitRate: 30,
   extraFees: {
     airportPickup: 0,
     nightService: 0,
@@ -118,6 +123,15 @@ function App() {
     hourlyServiceRate: donationSettings.hourlyServiceRate,
     extraFees: donationSettings.extraFees,
   });
+  const estimatedTaxiFare = calculateTaxiFare({
+    miles: previewMiles,
+    waitingHours: donationSettings.waitingHours,
+    baseFare: donationSettings.taxiBaseFare,
+    mileageRate: donationSettings.taxiMileageRate,
+    hourlyWaitRate: donationSettings.taxiHourlyWaitRate,
+    extraFees: donationSettings.extraFees,
+  });
+  const estimatedSavings = calculateNeighborSavings(estimatedTaxiFare.total, suggestedDonation.total);
   const receiptText = formatTripReceipt({
     neighborName: selectedMission?.neighborName,
     purpose: selectedMission?.purpose,
@@ -125,6 +139,7 @@ function App() {
     waitingHours: donationSettings.waitingHours,
     donationAmount: suggestedDonation.total,
     extraFees: donationSettings.extraFees,
+    taxiFare: estimatedTaxiFare.total,
   });
 
   function addMission(event) {
@@ -232,6 +247,10 @@ function App() {
             <input type="checkbox" defaultChecked />
             I serve as an ekklēsia Ministry Driver member
           </label>
+          <div className="button-row">
+            <button type="button">Sign Up</button>
+            <button type="button" className="secondary">Sign In</button>
+          </div>
         </div>
 
         <div className="panel">
@@ -352,6 +371,9 @@ function App() {
             <Input label="Mileage rate" type="number" value={donationSettings.mileageRate} onChange={(value) => setDonationSettings({ ...donationSettings, mileageRate: Number(value) })} />
             <Input label="1 hour waiting/service time" type="number" value={donationSettings.hourlyServiceRate} onChange={(value) => setDonationSettings({ ...donationSettings, hourlyServiceRate: Number(value) })} />
             <Input label="Waiting/service hours" type="number" value={donationSettings.waitingHours} onChange={(value) => setDonationSettings({ ...donationSettings, waitingHours: Number(value) })} />
+            <Input label="Taxi base fare" type="number" value={donationSettings.taxiBaseFare} onChange={(value) => setDonationSettings({ ...donationSettings, taxiBaseFare: Number(value) })} />
+            <Input label="Taxi mileage rate" type="number" value={donationSettings.taxiMileageRate} onChange={(value) => setDonationSettings({ ...donationSettings, taxiMileageRate: Number(value) })} />
+            <Input label="Taxi hourly wait rate" type="number" value={donationSettings.taxiHourlyWaitRate} onChange={(value) => setDonationSettings({ ...donationSettings, taxiHourlyWaitRate: Number(value) })} />
           </div>
           <h3>Optional extra fees</h3>
           <div className="fee-grid">
@@ -367,10 +389,17 @@ function App() {
             <h2>Trip Receipt</h2>
           </div>
           <div className="receipt-total">
-            <span>Device total</span>
+            <span>Suggested donation</span>
             <strong>${suggestedDonation.total.toFixed(2)}</strong>
           </div>
-          <p className="notes">Mileage: ${suggestedDonation.mileageAmount.toFixed(2)} • Waiting/service: ${suggestedDonation.serviceAmount.toFixed(2)} • Extra fees: ${suggestedDonation.extraFeeAmount.toFixed(2)}</p>
+          <div className="savings-card" aria-label="Taxi fare savings estimate">
+            <span>Estimated taxi fare</span>
+            <strong>${estimatedTaxiFare.total.toFixed(2)}</strong>
+            <span>Neighbor savings</span>
+            <strong>${estimatedSavings.toFixed(2)}</strong>
+          </div>
+          <p className="notes">Taxi estimate: base ${estimatedTaxiFare.baseAmount.toFixed(2)} • mileage ${estimatedTaxiFare.mileageAmount.toFixed(2)} • waiting ${estimatedTaxiFare.waitingAmount.toFixed(2)} • extra fees ${estimatedTaxiFare.extraFeeAmount.toFixed(2)}</p>
+          <p className="notes">Suggested donation: mileage ${suggestedDonation.mileageAmount.toFixed(2)} • waiting/service ${suggestedDonation.serviceAmount.toFixed(2)} • extra fees ${suggestedDonation.extraFeeAmount.toFixed(2)}</p>
           <pre className="receipt-preview">{receiptText}</pre>
           <button type="button" className="secondary full" onClick={() => window.print()}>Print Trip Receipt</button>
         </div>
@@ -397,7 +426,14 @@ function Input({ label, value, onChange, type = 'text', placeholder = '' }) {
   return (
     <label>
       {label}
-      <input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        min={type === 'number' ? '0' : undefined}
+        step={type === 'number' ? '0.01' : undefined}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </label>
   );
 }

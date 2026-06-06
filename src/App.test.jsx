@@ -38,12 +38,14 @@ describe('App trip workflow', () => {
     render(<App />);
 
     expect(screen.getByRole('heading', { name: /EMD Member Sign-Up/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign Up/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign In/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Complete Driver Portfolio/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Add me to the member-only driver map/i)).toBeInTheDocument();
     expect(screen.getByText(/Only available to EMD members/i)).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { name: /Suggested Donation Settings/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Mileage rate/i)).toHaveValue(0.7);
+    expect(screen.getByLabelText(/^Mileage rate$/i)).toHaveValue(0.7);
     expect(screen.getByLabelText(/1 hour waiting\/service time/i)).toHaveValue(10);
     expect(screen.getByText(/Basic taxi-style formula/i)).toBeInTheDocument();
     expect(screen.getByText(/Airport pickup/i)).toBeInTheDocument();
@@ -57,7 +59,10 @@ describe('App trip workflow', () => {
 
     expect(screen.getByRole('heading', { name: /Trip Receipt/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Print Trip Receipt/i })).toBeInTheDocument();
-    expect(screen.getByText(/Device total/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Suggested donation/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Estimated taxi fare/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Neighbor savings/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Estimated savings/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Donations are voluntary/i).length).toBeGreaterThanOrEqual(1);
   });
 });

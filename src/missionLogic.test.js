@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateMissionMiles,
   calculateMissionMinutes,
+  calculateNeighborSavings,
   calculateSuggestedDonation,
+  calculateTaxiFare,
   formatTripReceipt,
   getNextMissionAction,
   summarizeMissions,
@@ -69,6 +71,26 @@ describe('mission logic', () => {
     });
   });
 
+  it('estimates regular taxi fare and neighbor savings from the suggested donation', () => {
+    const taxiFare = calculateTaxiFare({
+      miles: 20,
+      waitingHours: 1,
+      baseFare: 4.5,
+      mileageRate: 3.25,
+      hourlyWaitRate: 30,
+      extraFees: { tolls: 4, bookingDispatch: 2.5 },
+    });
+
+    expect(taxiFare).toEqual({
+      baseAmount: 4.5,
+      mileageAmount: 65,
+      waitingAmount: 30,
+      extraFeeAmount: 6.5,
+      total: 106,
+    });
+    expect(calculateNeighborSavings(taxiFare.total, 43)).toBe(63);
+  });
+
   it('formats printable trip receipt text for the neighbor and dashboard device', () => {
     const receipt = formatTripReceipt({
       neighborName: 'Sarah Miller',
@@ -77,12 +99,15 @@ describe('mission logic', () => {
       waitingHours: 1,
       donationAmount: 43,
       extraFees: { tolls: 4, bookingDispatch: 2.5 },
+      taxiFare: 106,
     });
 
     expect(receipt).toContain('Trip receipt for Sarah Miller');
     expect(receipt).toContain('Clinic appointment');
     expect(receipt).toContain('Suggested donation: $43.00');
     expect(receipt).toContain('Extra fees: $6.50');
+    expect(receipt).toContain('Estimated taxi fare: $106.00');
+    expect(receipt).toContain('Estimated savings: $63.00');
     expect(receipt).toContain('Donations are voluntary.');
   });
 });
