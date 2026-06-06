@@ -75,6 +75,14 @@ const blankMission = {
   notes: '',
 };
 
+const blankDriverProfile = {
+  vehicleDescription: '',
+  serviceArea: '',
+  availability: '',
+  coordinatorNotes: '',
+  mapOptIn: true,
+};
+
 const defaultDonationSettings = {
   mileageRate: 0.7,
   hourlyServiceRate: 10,
@@ -113,7 +121,10 @@ function App() {
     phone: '(555) 010-1842',
     email: '',
     password: '',
+    memberDriver: true,
   });
+  const [driverProfile, setDriverProfile] = useState(blankDriverProfile);
+  const [savedDriverProfile, setSavedDriverProfile] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [authStatus, setAuthStatus] = useState('');
   const [authError, setAuthError] = useState('');
@@ -228,8 +239,21 @@ function App() {
         displayName: memberForm.displayName,
         email: memberForm.email,
         password: memberForm.password,
+        phone: memberForm.phone,
+        driverProfile: {
+          ...driverProfile,
+          memberDriver: memberForm.memberDriver,
+        },
       });
       setAuthUser(user);
+      if (memberForm.memberDriver) {
+        setSavedDriverProfile({
+          ...driverProfile,
+          displayName: memberForm.displayName,
+          phone: memberForm.phone,
+          email: memberForm.email,
+        });
+      }
       setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
     } catch (error) {
       setAuthError(getAuthErrorMessage(error));
@@ -260,6 +284,10 @@ function App() {
     setAuthError('');
     try {
       const user = await signInWithGoogle();
+      if (!user) {
+        setAuthStatus('Opening Google sign-in in this tab...');
+        return;
+      }
       setAuthUser(user);
       setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
     } catch (error) {
@@ -325,7 +353,7 @@ function App() {
             <Input label="Password" type="password" value={memberForm.password} onChange={(value) => setMemberForm({ ...memberForm, password: value })} />
           </div>
           <label className="checkbox-row">
-            <input type="checkbox" defaultChecked />
+            <input type="checkbox" checked={memberForm.memberDriver} onChange={(event) => setMemberForm({ ...memberForm, memberDriver: event.target.checked })} />
             I serve as an ekklēsia Ministry Driver member
           </label>
           {authStatus && <p className="notes success" aria-live="polite">{authStatus}</p>}
@@ -339,17 +367,46 @@ function App() {
           <p className="notes">{hasFirebaseConfig ? `Firebase Auth email/password and Google sign-in are connected${signedInLabel ? ` for ${signedInLabel}` : ''}.` : 'Firebase Auth needs app config before sign-in works.'}</p>
         </div>
 
-        <div className="panel">
+        <div className="panel member-only-panel">
           <div className="panel-heading">
             <p className="eyebrow">Driver record</p>
             <h2>Complete Driver Portfolio</h2>
           </div>
-          <p className="notes">Vehicle, service area, availability, contact notes, and coordinator permissions belong here.</p>
+          <p className="notes">Capture the driver details dispatchers need before assigning a Trip.</p>
+          <div className="form-grid two">
+            <Input label="Vehicle description" value={driverProfile.vehicleDescription} onChange={(value) => setDriverProfile({ ...driverProfile, vehicleDescription: value })} disabled={!memberForm.memberDriver} placeholder="Blue van, 4 seats, wheelchair room..." />
+            <Input label="Neighborhood/service area" value={driverProfile.serviceArea} onChange={(value) => setDriverProfile({ ...driverProfile, serviceArea: value })} disabled={!memberForm.memberDriver} placeholder="North Settlement, Plainview..." />
+            <Input label="Availability" value={driverProfile.availability} onChange={(value) => setDriverProfile({ ...driverProfile, availability: value })} disabled={!memberForm.memberDriver} placeholder="Weekday mornings, evenings..." />
+            <label>
+              Coordinator notes
+              <textarea
+                value={driverProfile.coordinatorNotes}
+                onChange={(event) => setDriverProfile({ ...driverProfile, coordinatorNotes: event.target.value })}
+                disabled={!memberForm.memberDriver}
+                placeholder="Trip limits, accessibility notes, call preferences..."
+              />
+            </label>
+          </div>
           <label className="checkbox-row">
-            <input type="checkbox" defaultChecked />
-            Add me to the member-only driver map
+            <input
+              type="checkbox"
+              checked={driverProfile.mapOptIn && memberForm.memberDriver}
+              disabled={!memberForm.memberDriver}
+              onChange={(event) => setDriverProfile({ ...driverProfile, mapOptIn: event.target.checked })}
+            />
+            Add me to the member-only neighborhood driver map
           </label>
-          <p className="notes">Only available to EMD members. Coordinators can use this to find a neighborhood driver when dispatching a trip.</p>
+          <p className="notes">Only available to EMD members.</p>
+          <p className="notes">Dispatchers can use this map opt-in to find a neighborhood Driver when dispatching a Trip.</p>
+          {savedDriverProfile?.mapOptIn && (
+            <div className="map-preview" aria-label="Captured neighborhood driver">
+              <strong>Driver portfolio captured for neighborhood map</strong>
+              <span>{savedDriverProfile.displayName || 'EMD member'}</span>
+              <span>{savedDriverProfile.serviceArea || 'Service area not set'}</span>
+              <span>{savedDriverProfile.vehicleDescription || 'Vehicle not set'}</span>
+            </div>
+          )}
+          {!memberForm.memberDriver && <p className="notes error">Complete Driver Portfolio is locked until the EMD member box is checked.</p>}
         </div>
       </section>
 
@@ -506,7 +563,7 @@ function App() {
   );
 }
 
-function Input({ label, value, onChange, type = 'text', placeholder = '' }) {
+function Input({ label, value, onChange, type = 'text', placeholder = '', disabled = false }) {
   return (
     <label>
       {label}
@@ -514,6 +571,7 @@ function Input({ label, value, onChange, type = 'text', placeholder = '' }) {
         type={type}
         value={value}
         placeholder={placeholder}
+        disabled={disabled}
         min={type === 'number' ? '0' : undefined}
         step={type === 'number' ? '0.01' : undefined}
         onChange={(event) => onChange(event.target.value)}

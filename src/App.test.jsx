@@ -61,6 +61,10 @@ describe('App trip workflow', () => {
     await user.type(screen.getByRole('textbox', { name: /EMD member name/i }), 'Isaac Weaver');
     await user.type(screen.getByRole('textbox', { name: /Email/i }), 'isaac@example.com');
     await user.type(screen.getByLabelText(/Password/i), 'quiet-service-123');
+    await user.type(screen.getByRole('textbox', { name: /Vehicle description/i }), 'Blue passenger van');
+    await user.type(screen.getByRole('textbox', { name: /Neighborhood\/service area/i }), 'North Settlement');
+    await user.type(screen.getByRole('textbox', { name: /Availability/i }), 'Weekday mornings');
+    await user.type(screen.getByRole('textbox', { name: /Coordinator notes/i }), 'Can handle wheelchair trips');
 
     await user.click(screen.getByRole('button', { name: /Sign In with Google/i }));
     expect(signInWithGoogle).toHaveBeenCalled();
@@ -72,8 +76,20 @@ describe('App trip workflow', () => {
       displayName: 'Isaac Weaver',
       email: 'isaac@example.com',
       password: 'quiet-service-123',
+      phone: '(555) 010-1842',
+      driverProfile: {
+        vehicleDescription: 'Blue passenger van',
+        serviceArea: 'North Settlement',
+        availability: 'Weekday mornings',
+        coordinatorNotes: 'Can handle wheelchair trips',
+        mapOptIn: true,
+        memberDriver: true,
+      },
     });
     expect(await screen.findByText(/Signed in as Isaac Weaver/i)).toBeInTheDocument();
+    expect(screen.getByText(/Driver portfolio captured for neighborhood map/i)).toBeInTheDocument();
+    expect(screen.getByText(/North Settlement/i)).toBeInTheDocument();
+    expect(screen.getByText(/Blue passenger van/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Sign Out/i }));
     expect(signOutMember).toHaveBeenCalled();
@@ -94,8 +110,13 @@ describe('App trip workflow', () => {
     expect(screen.getByRole('button', { name: /^Sign In$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Sign In with Google/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Complete Driver Portfolio/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Add me to the member-only driver map/i)).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Vehicle description/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Neighborhood\/service area/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Availability/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Coordinator notes/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Add me to the member-only neighborhood driver map/i)).toBeInTheDocument();
     expect(screen.getByText(/Only available to EMD members/i)).toBeInTheDocument();
+    expect(screen.getByText(/Dispatchers can use this map opt-in/i)).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { name: /Suggested Donation Settings/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Mileage rate$/i)).toHaveValue(0.7);

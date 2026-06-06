@@ -1,6 +1,6 @@
 # ekklēsiaMind / ekklēsia Ministry Driver Project Status
 
-Last updated: 2026-06-06 06:06:56 EDT
+Last updated: 2026-06-06 06:26:55 EDT
 
 ## Project Location
 
@@ -108,7 +108,9 @@ Member auth now includes:
 - password
 - Sign Up using Firebase Auth
 - Sign In using Firebase Auth
-- Sign In with Google using Firebase Auth popup
+- Sign In with Google using Firebase Auth popup with redirect fallback if the popup closes or is blocked
+- Complete Driver Portfolio fields captured with Sign Up when the person is an EMD member
+- member-only neighborhood driver map opt-in for future dispatcher map lookup
 - Sign Out after a member is signed in
 - signed-in status and safe auth error messages
 
@@ -121,11 +123,11 @@ Firebase Auth provider/domain setup verified:
 Validation results after wiring auth:
 
 - lint: passed
-- tests: 15 passed
+- tests: 16 passed
 - build: passed
 - `npm audit`: 0 vulnerabilities
 - Firebase Hosting deployed
-- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, and enabled Sign In with Google button
+- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, enabled Sign In with Google button, Complete Driver Portfolio fields, and member-only neighborhood driver map opt-in
 
 ## App Hosting Status
 

@@ -5,6 +5,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -36,8 +37,20 @@ export async function signInMember({ email, password }) {
 }
 
 export async function signInWithGoogle() {
-  const credential = await signInWithPopup(requireAuth(), new GoogleAuthProvider());
-  return credential.user;
+  const activeAuth = requireAuth();
+  const provider = new GoogleAuthProvider();
+
+  try {
+    const credential = await signInWithPopup(activeAuth, provider);
+    return credential.user;
+  } catch (error) {
+    if (['auth/popup-closed-by-user', 'auth/popup-blocked', 'auth/cancelled-popup-request'].includes(error?.code)) {
+      await signInWithRedirect(activeAuth, provider);
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function signOutMember() {
