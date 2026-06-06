@@ -1,6 +1,6 @@
 # ekklēsiaMind / ekklēsia Ministry Driver Project Status
 
-Last updated: 2026-06-06 05:59:59 EDT
+Last updated: 2026-06-06 06:06:56 EDT
 
 ## Project Location
 
@@ -98,7 +98,7 @@ Drivers can still edit:
 
 ## Sign-In / Sign-Up Auth
 
-Real Firebase Auth email/password sign-up and sign-in is wired in the member area.
+Real Firebase Auth email/password sign-up, email/password sign-in, and Google sign-in are wired in the member area.
 
 Member auth now includes:
 
@@ -108,22 +108,24 @@ Member auth now includes:
 - password
 - Sign Up using Firebase Auth
 - Sign In using Firebase Auth
+- Sign In with Google using Firebase Auth popup
 - Sign Out after a member is signed in
 - signed-in status and safe auth error messages
 
 Firebase Auth provider/domain setup verified:
 
 - Email/password provider enabled
+- Google provider enabled
 - Authorized domains include localhost, ekklesiamind.firebaseapp.com, ekklesiamind.web.app, ekklesiamind.com, www.ekklesiamind.com, ekklesiamind.org, and www.ekklesiamind.org
 
 Validation results after wiring auth:
 
 - lint: passed
-- tests: 14 passed
+- tests: 15 passed
 - build: passed
 - `npm audit`: 0 vulnerabilities
 - Firebase Hosting deployed
-- live UI verified with email/password fields and enabled Sign Up / Sign In buttons
+- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, and enabled Sign In with Google button
 
 ## App Hosting Status
 

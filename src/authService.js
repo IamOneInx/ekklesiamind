@@ -1,8 +1,10 @@
 import {
   createUserWithEmailAndPassword,
   getAuth,
+  GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -30,6 +32,11 @@ export async function registerMember({ email, password, displayName }) {
 
 export async function signInMember({ email, password }) {
   const credential = await signInWithEmailAndPassword(requireAuth(), email.trim(), password);
+  return credential.user;
+}
+
+export async function signInWithGoogle() {
+  const credential = await signInWithPopup(requireAuth(), new GoogleAuthProvider());
   return credential.user;
 }
 

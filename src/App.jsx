@@ -9,7 +9,7 @@ import {
   summarizeMissions,
 } from './missionLogic';
 import { hasFirebaseConfig } from './firebase';
-import { registerMember, signInMember, signOutMember, subscribeAuthState } from './authService';
+import { registerMember, signInMember, signInWithGoogle, signOutMember, subscribeAuthState } from './authService';
 import './App.css';
 
 const initialMissions = [
@@ -255,6 +255,20 @@ function App() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      const user = await signInWithGoogle();
+      setAuthUser(user);
+      setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
+    } catch (error) {
+      setAuthError(getAuthErrorMessage(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   async function handleMemberSignOut() {
     setAuthBusy(true);
     setAuthError('');
@@ -319,9 +333,10 @@ function App() {
           <div className="button-row">
             <button type="button" onClick={handleMemberSignUp} disabled={authBusy || !hasFirebaseConfig}>Sign Up</button>
             <button type="button" className="secondary" onClick={handleMemberSignIn} disabled={authBusy || !hasFirebaseConfig}>Sign In</button>
+            <button type="button" className="secondary" onClick={handleGoogleSignIn} disabled={authBusy || !hasFirebaseConfig}>Sign In with Google</button>
             {authUser && <button type="button" className="secondary" onClick={handleMemberSignOut} disabled={authBusy}>Sign Out</button>}
           </div>
-          <p className="notes">{hasFirebaseConfig ? `Firebase Auth email/password sign-in is connected${signedInLabel ? ` for ${signedInLabel}` : ''}.` : 'Firebase Auth needs app config before sign-in works.'}</p>
+          <p className="notes">{hasFirebaseConfig ? `Firebase Auth email/password and Google sign-in are connected${signedInLabel ? ` for ${signedInLabel}` : ''}.` : 'Firebase Auth needs app config before sign-in works.'}</p>
         </div>
 
         <div className="panel">

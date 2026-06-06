@@ -6,19 +6,21 @@ import App from './App';
 const authServiceMocks = vi.hoisted(() => ({
   registerMember: vi.fn(),
   signInMember: vi.fn(),
+  signInWithGoogle: vi.fn(),
   signOutMember: vi.fn(),
   subscribeAuthState: vi.fn(() => () => {}),
 }));
 
 vi.mock('./authService', () => authServiceMocks);
 
-const { registerMember, signInMember, signOutMember } = authServiceMocks;
+const { registerMember, signInMember, signInWithGoogle, signOutMember } = authServiceMocks;
 
 describe('App trip workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     registerMember.mockResolvedValue({ displayName: 'Isaac Weaver', email: 'isaac@example.com' });
     signInMember.mockResolvedValue({ displayName: '', email: 'isaac@example.com' });
+    signInWithGoogle.mockResolvedValue({ displayName: 'Isaac Weaver', email: 'isaac@gmail.com' });
     signOutMember.mockResolvedValue(undefined);
   });
   it('advances a scheduled trip when Start Trip is clicked', async () => {
@@ -60,6 +62,10 @@ describe('App trip workflow', () => {
     await user.type(screen.getByRole('textbox', { name: /Email/i }), 'isaac@example.com');
     await user.type(screen.getByLabelText(/Password/i), 'quiet-service-123');
 
+    await user.click(screen.getByRole('button', { name: /Sign In with Google/i }));
+    expect(signInWithGoogle).toHaveBeenCalled();
+    expect(await screen.findByText(/Signed in as Isaac Weaver/i)).toBeInTheDocument();
+
     await user.click(screen.getByRole('button', { name: /Sign Up/i }));
 
     expect(registerMember).toHaveBeenCalledWith({
@@ -72,7 +78,7 @@ describe('App trip workflow', () => {
     await user.click(screen.getByRole('button', { name: /Sign Out/i }));
     expect(signOutMember).toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: /Sign In/i }));
+    await user.click(screen.getByRole('button', { name: /^Sign In$/i }));
     expect(signInMember).toHaveBeenCalledWith({
       email: 'isaac@example.com',
       password: 'quiet-service-123',
@@ -85,7 +91,8 @@ describe('App trip workflow', () => {
 
     expect(screen.getByRole('heading', { name: /EMD Member Sign-Up/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Sign Up/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Sign In/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Sign In$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign In with Google/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Complete Driver Portfolio/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Add me to the member-only driver map/i)).toBeInTheDocument();
     expect(screen.getByText(/Only available to EMD members/i)).toBeInTheDocument();
