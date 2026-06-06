@@ -216,6 +216,21 @@ button:hover {
   margin-bottom: 18px;
 }
 
+.pma-box {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(47, 93, 58, 0.18);
+  border-radius: 18px;
+  background: #f7f9f2;
+  margin-top: 14px;
+  padding: 16px;
+}
+
+.pma-box h3 {
+  color: #263b2b;
+  margin-bottom: 0;
+}
+
 .driver-map-card {
   display: grid;
   gap: 4px;
@@ -281,7 +296,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid rgba(83, 99, 72, 0.24);
   border-radius: 15px;

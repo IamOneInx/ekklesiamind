@@ -78,6 +78,9 @@ describe('App trip workflow', () => {
     await user.type(screen.getByRole('textbox', { name: /EMD member name/i }), 'Isaac Weaver');
     await user.type(screen.getByRole('textbox', { name: /Email/i }), 'isaac@example.com');
     await user.type(screen.getByLabelText(/Password/i), 'quiet-service-123');
+    await user.type(screen.getByRole('textbox', { name: /Private invitation code/i }), 'EMD-PMA-FOUNDING');
+    await user.selectOptions(screen.getByLabelText(/Requested member role/i), 'driver');
+    await user.click(screen.getByLabelText(/I agree to join the private membership association/i));
     await user.type(screen.getByRole('textbox', { name: /Vehicle description/i }), 'Blue passenger van');
     await user.type(screen.getByRole('textbox', { name: /Neighborhood\/service area/i }), 'North Settlement');
     await user.type(screen.getByRole('textbox', { name: /Availability/i }), 'Weekday mornings');
@@ -107,10 +110,14 @@ describe('App trip workflow', () => {
         coordinatorNotes: 'Can handle wheelchair trips',
         mapOptIn: true,
         memberDriver: true,
+        memberRole: 'driver',
+        membershipAgreementAccepted: true,
+        membershipStatus: 'pending-admin-approval',
+        privateInvitationCode: 'EMD-PMA-FOUNDING',
       },
     });
     expect(await screen.findByText(/Signed in as Isaac Weaver/i)).toBeInTheDocument();
-    expect(screen.getByText(/Driver portfolio captured for neighborhood map/i)).toBeInTheDocument();
+    expect(screen.getByText(/Driver portfolio submitted for admin approval/i)).toBeInTheDocument();
     expect(screen.getAllByText(/North Settlement/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Blue passenger van/i).length).toBeGreaterThanOrEqual(1);
 
@@ -144,6 +151,13 @@ describe('App trip workflow', () => {
     expect(screen.getByLabelText(/Add me to the member-only neighborhood driver map/i)).toBeInTheDocument();
     expect(screen.getByText(/Only available to EMD members/i)).toBeInTheDocument();
     expect(screen.getByText(/Dispatchers can use this map opt-in/i)).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { name: /Private Membership Association/i })).toBeInTheDocument();
+    expect(screen.getByText(/not open to the public/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Private invitation code/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Requested member role/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/I agree to join the private membership association/i)).toBeInTheDocument();
+    expect(screen.getByText(/Membership status: pending admin approval/i)).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { name: /Admin Center/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Admin tools are only for signed-in EMD members/i).length).toBeGreaterThanOrEqual(1);

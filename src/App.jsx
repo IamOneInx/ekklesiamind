@@ -122,6 +122,9 @@ function App() {
     phone: '(555) 010-1842',
     email: '',
     password: '',
+    privateInvitationCode: '',
+    memberRole: 'driver',
+    membershipAgreementAccepted: false,
     memberDriver: true,
   });
   const [driverProfile, setDriverProfile] = useState(blankDriverProfile);
@@ -247,6 +250,12 @@ function App() {
   async function handleMemberSignUp() {
     setAuthBusy(true);
     setAuthError('');
+    if (!memberForm.membershipAgreementAccepted) {
+      setAuthError('Accept the private membership agreement before Sign Up.');
+      setAuthBusy(false);
+      return;
+    }
+
     try {
       const user = await registerMember({
         displayName: memberForm.displayName,
@@ -259,6 +268,10 @@ function App() {
         const portfolio = {
           ...driverProfile,
           memberDriver: memberForm.memberDriver,
+          memberRole: memberForm.memberRole,
+          membershipAgreementAccepted: memberForm.membershipAgreementAccepted,
+          membershipStatus: 'pending-admin-approval',
+          privateInvitationCode: memberForm.privateInvitationCode,
         };
         await saveDriverProfile({
           uid: user.uid,
@@ -381,6 +394,26 @@ function App() {
             <input type="checkbox" checked={memberForm.memberDriver} onChange={(event) => setMemberForm({ ...memberForm, memberDriver: event.target.checked })} />
             I serve as an ekklēsia Ministry Driver member
           </label>
+          <div className="pma-box">
+            <h3>Private Membership Association</h3>
+            <p className="notes">This EMD association is private and not open to the public. Membership requests stay pending until an admin approves them.</p>
+            <div className="form-grid two">
+              <Input label="Private invitation code" value={memberForm.privateInvitationCode} onChange={(value) => setMemberForm({ ...memberForm, privateInvitationCode: value })} placeholder="Provided by EMD admin" />
+              <label>
+                Requested member role
+                <select value={memberForm.memberRole} onChange={(event) => setMemberForm({ ...memberForm, memberRole: event.target.value })}>
+                  <option value="member">Member</option>
+                  <option value="driver">Driver</option>
+                  <option value="dispatcher">Dispatcher/Admin</option>
+                </select>
+              </label>
+            </div>
+            <label className="checkbox-row">
+              <input type="checkbox" checked={memberForm.membershipAgreementAccepted} onChange={(event) => setMemberForm({ ...memberForm, membershipAgreementAccepted: event.target.checked })} />
+              I agree to join the private membership association and follow the EMD member agreement.
+            </label>
+            <p className="notes">Membership status: pending admin approval</p>
+          </div>
           {authStatus && <p className="notes success" aria-live="polite">{authStatus}</p>}
           {authError && <p className="notes error" role="alert">{authError}</p>}
           <div className="button-row">
@@ -425,7 +458,7 @@ function App() {
           <p className="notes">Dispatchers can use this map opt-in to find a neighborhood Driver when dispatching a Trip.</p>
           {savedDriverProfile?.mapOptIn && (
             <div className="map-preview" aria-label="Captured neighborhood driver">
-              <strong>Driver portfolio captured for neighborhood map</strong>
+              <strong>Driver portfolio submitted for admin approval</strong>
               <span>{savedDriverProfile.displayName || 'EMD member'}</span>
               <span>{savedDriverProfile.serviceArea || 'Service area not set'}</span>
               <span>{savedDriverProfile.vehicleDescription || 'Vehicle not set'}</span>
@@ -443,7 +476,7 @@ function App() {
           </div>
           <span className="status active">Members only</span>
         </div>
-        <p className="notes">Admin tools are only for signed-in EMD members.</p>
+        <p className="notes">Admin tools are only for signed-in EMD members. The map lookup shows approved PMA members who opted in.</p>
         <div className="button-row">
           <button type="button" className="secondary" disabled={!authUser} onClick={refreshNeighborhoodDrivers}>Review Driver Portfolios</button>
           <button type="button" className="secondary" disabled={!authUser} onClick={refreshNeighborhoodDrivers}>Open Neighborhood Driver Map</button>

@@ -39,6 +39,10 @@ describe('driverProfileService', () => {
         coordinatorNotes: 'Can handle wheelchair trips',
         mapOptIn: true,
         memberDriver: true,
+        memberRole: 'driver',
+        membershipAgreementAccepted: true,
+        membershipStatus: 'pending-admin-approval',
+        privateInvitationCode: 'EMD-PMA-FOUNDING',
       },
     });
 
@@ -56,12 +60,16 @@ describe('driverProfileService', () => {
         coordinatorNotes: 'Can handle wheelchair trips',
         mapOptIn: true,
         memberDriver: true,
+        memberRole: 'driver',
+        membershipAgreementAccepted: true,
+        membershipStatus: 'pending-admin-approval',
+        privateInvitationCode: 'EMD-PMA-FOUNDING',
       }),
       { merge: true },
     );
   });
 
-  it('loads map-opted member drivers for dispatcher map lookup', async () => {
+  it('loads approved map-opted PMA member drivers for dispatcher map lookup', async () => {
     const { loadNeighborhoodDrivers } = await import('./driverProfileService');
     getDocs.mockResolvedValue({
       docs: [
@@ -74,6 +82,7 @@ describe('driverProfileService', () => {
     expect(collection).toHaveBeenCalledWith({ name: 'mock-firestore' }, 'driverProfiles');
     expect(where).toHaveBeenCalledWith('memberDriver', '==', true);
     expect(where).toHaveBeenCalledWith('mapOptIn', '==', true);
+    expect(where).toHaveBeenCalledWith('membershipStatus', '==', 'approved');
     expect(query).toHaveBeenCalled();
     expect(drivers).toEqual([
       { id: 'member-123', displayName: 'Isaac Weaver', serviceArea: 'North Settlement' },

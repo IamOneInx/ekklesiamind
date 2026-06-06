@@ -39,6 +39,10 @@ export async function saveDriverProfile({ uid, displayName, email, phone, driver
     coordinatorNotes: profile.coordinatorNotes?.trim() || '',
     mapOptIn: Boolean(profile.mapOptIn),
     memberDriver: Boolean(profile.memberDriver),
+    memberRole: profile.memberRole || 'member',
+    membershipAgreementAccepted: Boolean(profile.membershipAgreementAccepted),
+    membershipStatus: profile.membershipStatus || 'pending-admin-approval',
+    privateInvitationCode: profile.privateInvitationCode?.trim() || '',
     updatedAt: serverTimestamp(),
   }, { merge: true });
 }
@@ -49,6 +53,7 @@ export async function loadNeighborhoodDrivers() {
     collection(activeDb, 'driverProfiles'),
     where('memberDriver', '==', true),
     where('mapOptIn', '==', true),
+    where('membershipStatus', '==', 'approved'),
   );
   const snapshot = await getDocs(profilesQuery);
 

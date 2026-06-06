@@ -1,6 +1,6 @@
 # ekklēsiaMind / ekklēsia Ministry Driver Project Status
 
-Last updated: 2026-06-06 06:26:55 EDT
+Last updated: 2026-06-06 10:58:46 EDT
 
 ## Project Location
 
@@ -79,13 +79,9 @@ Suggested donation: $24.00
 Donations are voluntary.
 ```
 
-The app calculates taxi fare using a fixed app-controlled base fare plus configurable taxi mileage and wait rates.
+The app presents taxi fare as a national-average estimate using configurable taxi mileage and wait rates plus optional extra fees.
 
-Drivers should **not** be able to change the taxi base fare. That setting was removed from the dashboard. The UI now says:
-
-```text
-Taxi base fare is fixed by the app.
-```
+Drivers should **not** see or edit a taxi base fare. The old “Taxi base fare is fixed by the app.” UI note was removed.
 
 Drivers can still edit:
 
@@ -95,6 +91,20 @@ Drivers can still edit:
 - taxi mileage rate
 - taxi hourly wait rate
 - optional extra fees
+
+## PMA / Private Membership Flow
+
+The app now includes PMA-style membership gating:
+
+- Private Membership Association section in Sign Up
+- “not open to the public” membership notice
+- private invitation code field
+- requested role field: Member, Driver, Dispatcher/Admin
+- member agreement consent checkbox required before Sign Up
+- new member profiles saved as `pending-admin-approval`
+- dispatcher map lookup only loads approved, opted-in PMA drivers
+- Firestore create rules require accepted agreement and pending approval status
+- Firestore member updates cannot self-change approval status
 
 ## Sign-In / Sign-Up Auth
 
@@ -110,6 +120,7 @@ Member auth now includes:
 - Sign In using Firebase Auth
 - Sign In with Google using Firebase Auth popup with redirect fallback if the popup closes or is blocked
 - Complete Driver Portfolio fields captured with Sign Up when the person is an EMD member
+- PMA agreement, private invitation code, requested member role, and pending admin approval status captured during Sign Up
 - Complete Driver Portfolio saved to Firestore shared `driverProfiles` records for dispatcher lookup across devices
 - member-only neighborhood driver map opt-in available in the Admin Center dispatcher lookup
 - Sign Out after a member is signed in
@@ -128,7 +139,7 @@ Validation results after wiring auth:
 - build: passed
 - `npm audit`: 0 vulnerabilities
 - Firebase Hosting and Firestore rules deployed
-- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, enabled Sign In with Google button, Complete Driver Portfolio fields, Admin Center, Firestore-backed dispatcher lookup copy, member-only neighborhood driver map opt-in, and national-average taxi estimate copy
+- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, enabled Sign In with Google button, PMA membership section, private invitation code, requested role selection, agreement consent checkbox, pending admin approval copy, Complete Driver Portfolio fields, Admin Center, Firestore-backed approved-driver dispatcher lookup copy, member-only neighborhood driver map opt-in, and national-average taxi estimate copy
 
 ## App Hosting Status
 

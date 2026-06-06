@@ -4,7 +4,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /driverProfiles/{uid} {
       allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.membershipStatus == 'pending-admin-approval'
+        && request.resource.data.membershipAgreementAccepted == true;
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.membershipStatus == resource.data.membershipStatus;
       allow delete: if false;
     }
   }
