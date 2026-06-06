@@ -79,7 +79,6 @@ const defaultDonationSettings = {
   mileageRate: 0.7,
   hourlyServiceRate: 10,
   waitingHours: 1,
-  taxiBaseFare: 4.5,
   taxiMileageRate: 3.25,
   taxiHourlyWaitRate: 30,
   extraFees: {
@@ -126,7 +125,6 @@ function App() {
   const estimatedTaxiFare = calculateTaxiFare({
     miles: previewMiles,
     waitingHours: donationSettings.waitingHours,
-    baseFare: donationSettings.taxiBaseFare,
     mileageRate: donationSettings.taxiMileageRate,
     hourlyWaitRate: donationSettings.taxiHourlyWaitRate,
     extraFees: donationSettings.extraFees,
@@ -371,7 +369,7 @@ function App() {
             <Input label="Mileage rate" type="number" value={donationSettings.mileageRate} onChange={(value) => setDonationSettings({ ...donationSettings, mileageRate: Number(value) })} />
             <Input label="1 hour waiting/service time" type="number" value={donationSettings.hourlyServiceRate} onChange={(value) => setDonationSettings({ ...donationSettings, hourlyServiceRate: Number(value) })} />
             <Input label="Waiting/service hours" type="number" value={donationSettings.waitingHours} onChange={(value) => setDonationSettings({ ...donationSettings, waitingHours: Number(value) })} />
-            <Input label="Taxi base fare" type="number" value={donationSettings.taxiBaseFare} onChange={(value) => setDonationSettings({ ...donationSettings, taxiBaseFare: Number(value) })} />
+            <p className="notes fixed-rate-note">Taxi base fare is fixed by the app.</p>
             <Input label="Taxi mileage rate" type="number" value={donationSettings.taxiMileageRate} onChange={(value) => setDonationSettings({ ...donationSettings, taxiMileageRate: Number(value) })} />
             <Input label="Taxi hourly wait rate" type="number" value={donationSettings.taxiHourlyWaitRate} onChange={(value) => setDonationSettings({ ...donationSettings, taxiHourlyWaitRate: Number(value) })} />
           </div>

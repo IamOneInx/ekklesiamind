@@ -47,6 +47,8 @@ describe('App trip workflow', () => {
     expect(screen.getByRole('heading', { name: /Suggested Donation Settings/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Mileage rate$/i)).toHaveValue(0.7);
     expect(screen.getByLabelText(/1 hour waiting\/service time/i)).toHaveValue(10);
+    expect(screen.queryByLabelText(/Taxi base fare/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Taxi base fare is fixed by the app/i)).toBeInTheDocument();
     expect(screen.getByText(/Basic taxi-style formula/i)).toBeInTheDocument();
     expect(screen.getByText(/Airport pickup/i)).toBeInTheDocument();
     expect(screen.getByText(/Night service/i)).toBeInTheDocument();
