@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import {
   calculateMissionMiles,
   calculateMissionMinutes,
-  calculateNeighborSavings,
   calculateSuggestedDonation,
   calculateTaxiFare,
   formatTripReceipt,
@@ -129,7 +128,6 @@ function App() {
     hourlyWaitRate: donationSettings.taxiHourlyWaitRate,
     extraFees: donationSettings.extraFees,
   });
-  const estimatedSavings = calculateNeighborSavings(estimatedTaxiFare.total, suggestedDonation.total);
   const receiptText = formatTripReceipt({
     neighborName: selectedMission?.neighborName,
     purpose: selectedMission?.purpose,
@@ -390,11 +388,9 @@ function App() {
             <span>Suggested donation</span>
             <strong>${suggestedDonation.total.toFixed(2)}</strong>
           </div>
-          <div className="savings-card" aria-label="Taxi fare savings estimate">
+          <div className="savings-card" aria-label="Estimated taxi fare">
             <span>Estimated taxi fare</span>
             <strong>${estimatedTaxiFare.total.toFixed(2)}</strong>
-            <span>Neighbor savings</span>
-            <strong>${estimatedSavings.toFixed(2)}</strong>
           </div>
           <p className="notes">Taxi estimate: base ${estimatedTaxiFare.baseAmount.toFixed(2)} • mileage ${estimatedTaxiFare.mileageAmount.toFixed(2)} • waiting ${estimatedTaxiFare.waitingAmount.toFixed(2)} • extra fees ${estimatedTaxiFare.extraFeeAmount.toFixed(2)}</p>
           <p className="notes">Suggested donation: mileage ${suggestedDonation.mileageAmount.toFixed(2)} • waiting/service ${suggestedDonation.serviceAmount.toFixed(2)} • extra fees ${suggestedDonation.extraFeeAmount.toFixed(2)}</p>

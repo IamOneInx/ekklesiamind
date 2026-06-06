@@ -96,7 +96,6 @@ export function calculateNeighborSavings(taxiFare = 0, donationAmount = 0) {
 export function formatTripReceipt({ neighborName = 'Neighbor', purpose = 'Trip', miles = 0, waitingHours = 0, donationAmount = 0, extraFees = {}, taxiFare = 0 }) {
   const extraFeeAmount = roundToTwo(Object.values(extraFees).reduce((total, fee) => total + nonNegativeNumber(fee), 0));
   const taxiFareAmount = roundToTwo(nonNegativeNumber(taxiFare));
-  const savingsAmount = calculateNeighborSavings(taxiFareAmount, donationAmount);
 
   return [
     `Trip receipt for ${neighborName}`,
@@ -106,7 +105,6 @@ export function formatTripReceipt({ neighborName = 'Neighbor', purpose = 'Trip',
     `Extra fees: $${extraFeeAmount.toFixed(2)}`,
     `Estimated taxi fare: $${taxiFareAmount.toFixed(2)}`,
     `Suggested donation: $${safeNumber(donationAmount).toFixed(2)}`,
-    `Estimated savings: $${savingsAmount.toFixed(2)}`,
     'Donations are voluntary.',
   ].join('\n');
 }

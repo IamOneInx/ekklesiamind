@@ -107,7 +107,7 @@ describe('mission logic', () => {
     expect(receipt).toContain('Suggested donation: $43.00');
     expect(receipt).toContain('Extra fees: $6.50');
     expect(receipt).toContain('Estimated taxi fare: $106.00');
-    expect(receipt).toContain('Estimated savings: $63.00');
+    expect(receipt).not.toContain('Estimated savings:');
     expect(receipt).toContain('Donations are voluntary.');
   });
 });

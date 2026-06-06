@@ -1,6 +1,6 @@
 # ekklēsiaMind / ekklēsia Ministry Driver Project Status
 
-Last updated: 2026-06-05 22:48:42 EDT
+Last updated: 2026-06-06 05:27:35 EDT
 
 ## Project Location
 
@@ -61,15 +61,14 @@ Validation results from the latest work:
 - GitHub CI: passed
 - CodeQL security scan: passed
 
-## Receipt / Taxi Savings Changes
+## Receipt / Taxi Estimate Changes
 
-Trip Receipt now shows the neighbor how much they are saving compared with an estimated regular taxi fare.
+Trip Receipt shows the neighbor the estimated regular taxi fare and the suggested voluntary donation without listing an estimated savings amount.
 
 Receipt now includes:
 
 - Estimated taxi fare
 - Suggested donation
-- Estimated savings
 - Donations are voluntary
 
 Example shown after the change:
@@ -77,7 +76,7 @@ Example shown after the change:
 ```text
 Estimated taxi fare: $99.50
 Suggested donation: $24.00
-Estimated savings: $75.50
+Donations are voluntary.
 ```
 
 The app calculates taxi fare using a fixed app-controlled base fare plus configurable taxi mileage and wait rates.

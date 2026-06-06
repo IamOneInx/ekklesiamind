@@ -63,8 +63,8 @@ describe('App trip workflow', () => {
     expect(screen.getByRole('button', { name: /Print Trip Receipt/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Suggested donation/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Estimated taxi fare/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Neighbor savings/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Estimated savings/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/Neighbor savings/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Estimated savings/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/Donations are voluntary/i).length).toBeGreaterThanOrEqual(1);
   });
 });
