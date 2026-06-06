@@ -11,17 +11,34 @@ const authServiceMocks = vi.hoisted(() => ({
   subscribeAuthState: vi.fn(() => () => {}),
 }));
 
+const driverProfileServiceMocks = vi.hoisted(() => ({
+  loadNeighborhoodDrivers: vi.fn(),
+  saveDriverProfile: vi.fn(),
+}));
+
 vi.mock('./authService', () => authServiceMocks);
+vi.mock('./driverProfileService', () => driverProfileServiceMocks);
 
 const { registerMember, signInMember, signInWithGoogle, signOutMember } = authServiceMocks;
+const { loadNeighborhoodDrivers, saveDriverProfile } = driverProfileServiceMocks;
 
 describe('App trip workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    registerMember.mockResolvedValue({ displayName: 'Isaac Weaver', email: 'isaac@example.com' });
-    signInMember.mockResolvedValue({ displayName: '', email: 'isaac@example.com' });
-    signInWithGoogle.mockResolvedValue({ displayName: 'Isaac Weaver', email: 'isaac@gmail.com' });
+    registerMember.mockResolvedValue({ uid: 'member-123', displayName: 'Isaac Weaver', email: 'isaac@example.com' });
+    signInMember.mockResolvedValue({ uid: 'member-123', displayName: '', email: 'isaac@example.com' });
+    signInWithGoogle.mockResolvedValue({ uid: 'member-123', displayName: 'Isaac Weaver', email: 'isaac@gmail.com' });
     signOutMember.mockResolvedValue(undefined);
+    saveDriverProfile.mockResolvedValue(undefined);
+    loadNeighborhoodDrivers.mockResolvedValue([
+      {
+        id: 'member-123',
+        displayName: 'Isaac Weaver',
+        serviceArea: 'North Settlement',
+        vehicleDescription: 'Blue passenger van',
+        availability: 'Weekday mornings',
+      },
+    ]);
   });
   it('advances a scheduled trip when Start Trip is clicked', async () => {
     const user = userEvent.setup();
@@ -77,6 +94,12 @@ describe('App trip workflow', () => {
       email: 'isaac@example.com',
       password: 'quiet-service-123',
       phone: '(555) 010-1842',
+    });
+    expect(saveDriverProfile).toHaveBeenCalledWith({
+      uid: 'member-123',
+      displayName: 'Isaac Weaver',
+      email: 'isaac@example.com',
+      phone: '(555) 010-1842',
       driverProfile: {
         vehicleDescription: 'Blue passenger van',
         serviceArea: 'North Settlement',
@@ -88,8 +111,12 @@ describe('App trip workflow', () => {
     });
     expect(await screen.findByText(/Signed in as Isaac Weaver/i)).toBeInTheDocument();
     expect(screen.getByText(/Driver portfolio captured for neighborhood map/i)).toBeInTheDocument();
-    expect(screen.getByText(/North Settlement/i)).toBeInTheDocument();
-    expect(screen.getByText(/Blue passenger van/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/North Settlement/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Blue passenger van/i).length).toBeGreaterThanOrEqual(1);
+
+    expect((await screen.findAllByText(/Shared dispatcher map lookup/i)).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/North Settlement/i).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/Blue passenger van/i).length).toBeGreaterThanOrEqual(2);
 
     await user.click(screen.getByRole('button', { name: /Sign Out/i }));
     expect(signOutMember).toHaveBeenCalled();
@@ -118,12 +145,18 @@ describe('App trip workflow', () => {
     expect(screen.getByText(/Only available to EMD members/i)).toBeInTheDocument();
     expect(screen.getByText(/Dispatchers can use this map opt-in/i)).toBeInTheDocument();
 
+    expect(screen.getByRole('heading', { name: /Admin Center/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Admin tools are only for signed-in EMD members/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('button', { name: /Review Driver Portfolios/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Open Neighborhood Driver Map/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Manage Trip Dispatch/i })).toBeInTheDocument();
+
     expect(screen.getByRole('heading', { name: /Suggested Donation Settings/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Mileage rate$/i)).toHaveValue(0.7);
     expect(screen.getByLabelText(/1 hour waiting\/service time/i)).toHaveValue(10);
     expect(screen.queryByLabelText(/Taxi base fare/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Taxi base fare is fixed by the app/i)).toBeInTheDocument();
-    expect(screen.getByText(/Basic taxi-style formula/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Taxi base fare is fixed by the app/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/National-average taxi estimate/i)).toBeInTheDocument();
     expect(screen.getByText(/Airport pickup/i)).toBeInTheDocument();
     expect(screen.getByText(/Night service/i)).toBeInTheDocument();
     expect(screen.getByText(/Extra passengers/i)).toBeInTheDocument();

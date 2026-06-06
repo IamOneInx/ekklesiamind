@@ -10,6 +10,7 @@ import {
 } from './missionLogic';
 import { hasFirebaseConfig } from './firebase';
 import { registerMember, signInMember, signInWithGoogle, signOutMember, subscribeAuthState } from './authService';
+import { loadNeighborhoodDrivers, saveDriverProfile } from './driverProfileService';
 import './App.css';
 
 const initialMissions = [
@@ -125,6 +126,8 @@ function App() {
   });
   const [driverProfile, setDriverProfile] = useState(blankDriverProfile);
   const [savedDriverProfile, setSavedDriverProfile] = useState(null);
+  const [neighborhoodDrivers, setNeighborhoodDrivers] = useState([]);
+  const [adminStatus, setAdminStatus] = useState('Admin tools are only for signed-in EMD members.');
   const [authUser, setAuthUser] = useState(null);
   const [authStatus, setAuthStatus] = useState('');
   const [authError, setAuthError] = useState('');
@@ -231,6 +234,16 @@ function App() {
     });
   }
 
+  async function refreshNeighborhoodDrivers() {
+    try {
+      const drivers = await loadNeighborhoodDrivers();
+      setNeighborhoodDrivers(drivers);
+      setAdminStatus('Shared dispatcher map lookup is ready.');
+    } catch {
+      setAdminStatus('Sign in as an EMD member to load shared driver profiles.');
+    }
+  }
+
   async function handleMemberSignUp() {
     setAuthBusy(true);
     setAuthError('');
@@ -240,19 +253,27 @@ function App() {
         email: memberForm.email,
         password: memberForm.password,
         phone: memberForm.phone,
-        driverProfile: {
-          ...driverProfile,
-          memberDriver: memberForm.memberDriver,
-        },
       });
       setAuthUser(user);
       if (memberForm.memberDriver) {
+        const portfolio = {
+          ...driverProfile,
+          memberDriver: memberForm.memberDriver,
+        };
+        await saveDriverProfile({
+          uid: user.uid,
+          displayName: memberForm.displayName,
+          email: memberForm.email,
+          phone: memberForm.phone,
+          driverProfile: portfolio,
+        });
         setSavedDriverProfile({
           ...driverProfile,
           displayName: memberForm.displayName,
           phone: memberForm.phone,
           email: memberForm.email,
         });
+        await refreshNeighborhoodDrivers();
       }
       setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
     } catch (error) {
@@ -272,6 +293,7 @@ function App() {
       });
       setAuthUser(user);
       setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
+      await refreshNeighborhoodDrivers();
     } catch (error) {
       setAuthError(getAuthErrorMessage(error));
     } finally {
@@ -290,6 +312,7 @@ function App() {
       }
       setAuthUser(user);
       setAuthStatus(`Signed in as ${user.displayName || user.email || 'EMD member'}`);
+      await refreshNeighborhoodDrivers();
     } catch (error) {
       setAuthError(getAuthErrorMessage(error));
     } finally {
@@ -303,6 +326,8 @@ function App() {
     try {
       await signOutMember();
       setAuthUser(null);
+      setNeighborhoodDrivers([]);
+      setAdminStatus('Admin tools are only for signed-in EMD members.');
       setAuthStatus('Signed out.');
     } catch (error) {
       setAuthError(getAuthErrorMessage(error));
@@ -410,6 +435,37 @@ function App() {
         </div>
       </section>
 
+      <section className="panel admin-panel" aria-label="Admin Center">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Admin</p>
+            <h2>Admin Center</h2>
+          </div>
+          <span className="status active">Members only</span>
+        </div>
+        <p className="notes">Admin tools are only for signed-in EMD members.</p>
+        <div className="button-row">
+          <button type="button" className="secondary" disabled={!authUser} onClick={refreshNeighborhoodDrivers}>Review Driver Portfolios</button>
+          <button type="button" className="secondary" disabled={!authUser} onClick={refreshNeighborhoodDrivers}>Open Neighborhood Driver Map</button>
+          <button type="button" className="secondary" disabled={!authUser}>Manage Trip Dispatch</button>
+        </div>
+        <p className="notes success" aria-live="polite">{adminStatus}</p>
+        {neighborhoodDrivers.length > 0 ? (
+          <div className="driver-map-list" aria-label="Shared dispatcher map lookup">
+            <strong>Shared dispatcher map lookup</strong>
+            {neighborhoodDrivers.map((driver) => (
+              <article key={driver.id || driver.uid} className="driver-map-card">
+                <span>{driver.displayName || 'EMD member'}</span>
+                <strong>{driver.serviceArea || 'Service area not set'}</strong>
+                <small>{driver.vehicleDescription || 'Vehicle not set'} • {driver.availability || 'Availability not set'}</small>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="notes">Saved map opt-ins will appear here after an EMD member signs in.</p>
+        )}
+      </section>
+
       <section className="layout-grid">
         <div className="panel">
           <div className="panel-heading">
@@ -508,13 +564,12 @@ function App() {
             <p className="eyebrow">Driver dashboard</p>
             <h2>Suggested Donation Settings</h2>
           </div>
-          <p className="notes">Basic taxi-style formula: miles × mileage rate + waiting/service time × hourly rate + optional extra fees.</p>
+          <p className="notes">National-average taxi estimate: miles × mileage rate + waiting/service time × hourly rate + optional extra fees.</p>
           <p className="notes">Suggested defaults are filled in, but each EMD may set their own suggested amounts. Donations are voluntary.</p>
           <div className="form-grid two">
             <Input label="Mileage rate" type="number" value={donationSettings.mileageRate} onChange={(value) => setDonationSettings({ ...donationSettings, mileageRate: Number(value) })} />
             <Input label="1 hour waiting/service time" type="number" value={donationSettings.hourlyServiceRate} onChange={(value) => setDonationSettings({ ...donationSettings, hourlyServiceRate: Number(value) })} />
             <Input label="Waiting/service hours" type="number" value={donationSettings.waitingHours} onChange={(value) => setDonationSettings({ ...donationSettings, waitingHours: Number(value) })} />
-            <p className="notes fixed-rate-note">Taxi base fare is fixed by the app.</p>
             <Input label="Taxi mileage rate" type="number" value={donationSettings.taxiMileageRate} onChange={(value) => setDonationSettings({ ...donationSettings, taxiMileageRate: Number(value) })} />
             <Input label="Taxi hourly wait rate" type="number" value={donationSettings.taxiHourlyWaitRate} onChange={(value) => setDonationSettings({ ...donationSettings, taxiHourlyWaitRate: Number(value) })} />
           </div>

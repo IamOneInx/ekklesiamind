@@ -110,7 +110,8 @@ Member auth now includes:
 - Sign In using Firebase Auth
 - Sign In with Google using Firebase Auth popup with redirect fallback if the popup closes or is blocked
 - Complete Driver Portfolio fields captured with Sign Up when the person is an EMD member
-- member-only neighborhood driver map opt-in for future dispatcher map lookup
+- Complete Driver Portfolio saved to Firestore shared `driverProfiles` records for dispatcher lookup across devices
+- member-only neighborhood driver map opt-in available in the Admin Center dispatcher lookup
 - Sign Out after a member is signed in
 - signed-in status and safe auth error messages
 
@@ -123,11 +124,11 @@ Firebase Auth provider/domain setup verified:
 Validation results after wiring auth:
 
 - lint: passed
-- tests: 16 passed
+- tests: 18 passed
 - build: passed
 - `npm audit`: 0 vulnerabilities
-- Firebase Hosting deployed
-- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, enabled Sign In with Google button, Complete Driver Portfolio fields, and member-only neighborhood driver map opt-in
+- Firebase Hosting and Firestore rules deployed
+- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, enabled Sign In with Google button, Complete Driver Portfolio fields, Admin Center, Firestore-backed dispatcher lookup copy, member-only neighborhood driver map opt-in, and national-average taxi estimate copy
 
 ## App Hosting Status
 
