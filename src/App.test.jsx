@@ -85,6 +85,8 @@ describe('App trip workflow', () => {
     await user.type(screen.getByRole('textbox', { name: /Neighborhood\/service area/i }), 'North Settlement');
     await user.type(screen.getByRole('textbox', { name: /Availability/i }), 'Weekday mornings');
     await user.type(screen.getByRole('textbox', { name: /Coordinator notes/i }), 'Can handle wheelchair trips');
+    await user.upload(screen.getByLabelText(/Driver license copy \(optional\)/i), new File(['dl'], 'isaac-license.pdf', { type: 'application/pdf' }));
+    await user.upload(screen.getByLabelText(/Insurance copy \(optional\)/i), new File(['insurance'], 'isaac-insurance.pdf', { type: 'application/pdf' }));
 
     await user.click(screen.getByRole('button', { name: /Sign In with Google/i }));
     expect(signInWithGoogle).toHaveBeenCalled();
@@ -108,6 +110,8 @@ describe('App trip workflow', () => {
         serviceArea: 'North Settlement',
         availability: 'Weekday mornings',
         coordinatorNotes: 'Can handle wheelchair trips',
+        driverLicenseCopyName: 'isaac-license.pdf',
+        insuranceCopyName: 'isaac-insurance.pdf',
         mapOptIn: true,
         memberDriver: true,
         memberRole: 'driver',
@@ -148,6 +152,9 @@ describe('App trip workflow', () => {
     expect(screen.getByRole('textbox', { name: /Neighborhood\/service area/i })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Availability/i })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Coordinator notes/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Driver license copy \(optional\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Insurance copy \(optional\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/DL and insurance copies are optional/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Add me to the member-only neighborhood driver map/i)).toBeInTheDocument();
     expect(screen.getByText(/Only available to EMD members/i)).toBeInTheDocument();
     expect(screen.getByText(/Dispatchers can use this map opt-in/i)).toBeInTheDocument();

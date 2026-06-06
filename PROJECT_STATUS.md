@@ -1,6 +1,6 @@
 # ekklēsiaMind / ekklēsia Ministry Driver Project Status
 
-Last updated: 2026-06-06 10:58:46 EDT
+Last updated: 2026-06-06 13:09:06 EDT
 
 ## Project Location
 
@@ -120,6 +120,7 @@ Member auth now includes:
 - Sign In using Firebase Auth
 - Sign In with Google using Firebase Auth popup with redirect fallback if the popup closes or is blocked
 - Complete Driver Portfolio fields captured with Sign Up when the person is an EMD member
+- optional Driver license copy and Insurance copy file inputs in the Driver Portfolio; selected file names are captured for admin review
 - PMA agreement, private invitation code, requested member role, and pending admin approval status captured during Sign Up
 - Complete Driver Portfolio saved to Firestore shared `driverProfiles` records for dispatcher lookup across devices
 - member-only neighborhood driver map opt-in available in the Admin Center dispatcher lookup
@@ -139,7 +140,7 @@ Validation results after wiring auth:
 - build: passed
 - `npm audit`: 0 vulnerabilities
 - Firebase Hosting and Firestore rules deployed
-- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, enabled Sign In with Google button, PMA membership section, private invitation code, requested role selection, agreement consent checkbox, pending admin approval copy, Complete Driver Portfolio fields, Admin Center, Firestore-backed approved-driver dispatcher lookup copy, member-only neighborhood driver map opt-in, and national-average taxi estimate copy
+- live UI verified with email/password fields, enabled Sign Up / Sign In buttons, enabled Sign In with Google button, PMA membership section, private invitation code, requested role selection, agreement consent checkbox, pending admin approval copy, Complete Driver Portfolio fields, optional Driver license copy and Insurance copy file inputs, Admin Center, Firestore-backed approved-driver dispatcher lookup copy, member-only neighborhood driver map opt-in, and national-average taxi estimate copy
 
 ## App Hosting Status
 

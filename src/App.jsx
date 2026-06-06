@@ -81,6 +81,8 @@ const blankDriverProfile = {
   serviceArea: '',
   availability: '',
   coordinatorNotes: '',
+  driverLicenseCopyName: '',
+  insuranceCopyName: '',
   mapOptIn: true,
 };
 
@@ -444,6 +446,24 @@ function App() {
                 placeholder="Trip limits, accessibility notes, call preferences..."
               />
             </label>
+            <label>
+              Driver license copy (optional)
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                disabled={!memberForm.memberDriver}
+                onChange={(event) => setDriverProfile({ ...driverProfile, driverLicenseCopyName: event.target.files?.[0]?.name || '' })}
+              />
+            </label>
+            <label>
+              Insurance copy (optional)
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                disabled={!memberForm.memberDriver}
+                onChange={(event) => setDriverProfile({ ...driverProfile, insuranceCopyName: event.target.files?.[0]?.name || '' })}
+              />
+            </label>
           </div>
           <label className="checkbox-row">
             <input
@@ -455,6 +475,7 @@ function App() {
             Add me to the member-only neighborhood driver map
           </label>
           <p className="notes">Only available to EMD members.</p>
+          <p className="notes">DL and insurance copies are optional. If added, this screen currently records the selected file names for admin review.</p>
           <p className="notes">Dispatchers can use this map opt-in to find a neighborhood Driver when dispatching a Trip.</p>
           {savedDriverProfile?.mapOptIn && (
             <div className="map-preview" aria-label="Captured neighborhood driver">

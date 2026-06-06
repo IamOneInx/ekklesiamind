@@ -37,6 +37,8 @@ export async function saveDriverProfile({ uid, displayName, email, phone, driver
     serviceArea: profile.serviceArea?.trim() || '',
     availability: profile.availability?.trim() || '',
     coordinatorNotes: profile.coordinatorNotes?.trim() || '',
+    driverLicenseCopyName: profile.driverLicenseCopyName?.trim() || '',
+    insuranceCopyName: profile.insuranceCopyName?.trim() || '',
     mapOptIn: Boolean(profile.mapOptIn),
     memberDriver: Boolean(profile.memberDriver),
     memberRole: profile.memberRole || 'member',
