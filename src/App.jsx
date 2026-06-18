@@ -83,6 +83,21 @@ function sameTripId(left, right) {
   return String(left) === String(right);
 }
 
+const ACTIVE_TRIP_STATUSES = ['scheduled', 'active', 'pickup-arrived', 'appointment-arrived', 'returning'];
+
+function tripSortTime(trip) {
+  return Date.parse(trip.pickupTime || trip.appointmentTime || trip.createdAt || '') || Number.MAX_SAFE_INTEGER;
+}
+
+function sortDispatcherTrips(tripsToSort = []) {
+  return [...tripsToSort].sort((a, b) => {
+    const aImmediate = a.urgency === 'immediate' && ACTIVE_TRIP_STATUSES.includes(a.status || 'scheduled');
+    const bImmediate = b.urgency === 'immediate' && ACTIVE_TRIP_STATUSES.includes(b.status || 'scheduled');
+    if (aImmediate !== bImmediate) return aImmediate ? -1 : 1;
+    return tripSortTime(a) - tripSortTime(b);
+  });
+}
+
 const defaultDonationSettings = {
   mileageRate: 0.7,
   hourlyServiceRate: 10,
@@ -156,6 +171,7 @@ function App() {
   const [neighborhoodDrivers, setNeighborhoodDrivers] = useState([]);
   const [onDutyDrivers, setOnDutyDrivers]   = useState([]);
   const [dispatchStatus, setDispatchStatus] = useState('');
+  const [dispatchTripsBusy, setDispatchTripsBusy] = useState(false);
   const [allProfiles, setAllProfiles]       = useState([]);
   const [adminBusy, setAdminBusy]           = useState(false);
 
@@ -172,22 +188,52 @@ function App() {
   const isDispatcher = isAdmin || (isApprovedMember && ['dispatcher', 'admin'].includes(userProfile?.role));
   const isApprovedDriver = isApprovedMember && userProfile?.role === 'driver';
 
+  async function loadOpenTrips() {
+    if (!hasFirebaseConfig || !authUser || !userProfile) return;
+    setDispatchTripsBusy(true);
+    try {
+      const loadedTrips = await loadTripsForProfile({ uid: authUser.uid, profile: userProfile, isAdmin });
+      const sortedTrips = sortDispatcherTrips(loadedTrips);
+      if (sortedTrips.length > 0) {
+        setTrips(sortedTrips);
+        setSelectedId(sortedTrips[0].id);
+      } else if (isDispatcher || isAdmin) {
+        setTrips([]);
+        setSelectedId(null);
+      }
+      setDispatchStatus(sortedTrips.length === 0 ? 'No open trips found.' : `Loaded ${sortedTrips.length} open trip${sortedTrips.length === 1 ? '' : 's'}.`);
+    } catch {
+      setTripSaveStatus('Could not load saved trips. Local sample trips are still shown.');
+      setDispatchStatus('Could not load open trips. Sign in and try again.');
+    } finally {
+      setDispatchTripsBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (!hasFirebaseConfig || !authUser || !userProfile) return;
     let cancelled = false;
+    setDispatchTripsBusy(true);
     loadTripsForProfile({ uid: authUser.uid, profile: userProfile, isAdmin })
       .then((loadedTrips) => {
         if (cancelled) return;
-        if (loadedTrips.length > 0) {
-          setTrips(loadedTrips);
-          setSelectedId(loadedTrips[0].id);
+        const sortedTrips = sortDispatcherTrips(loadedTrips);
+        if (sortedTrips.length > 0) {
+          setTrips(sortedTrips);
+          setSelectedId(sortedTrips[0].id);
+        } else if (isDispatcher || isAdmin) {
+          setTrips([]);
+          setSelectedId(null);
         }
       })
       .catch(() => {
         if (!cancelled) setTripSaveStatus('Could not load saved trips. Local sample trips are still shown.');
+      })
+      .finally(() => {
+        if (!cancelled) setDispatchTripsBusy(false);
       });
     return () => { cancelled = true; };
-  }, [authUser, userProfile, isAdmin]);
+  }, [authUser, userProfile, isAdmin, isDispatcher]);
 
   // ── Auth listener ──────────────────────────────────────────────────────────
   useEffect(() => subscribeAuthState(async (user) => {
@@ -420,6 +466,15 @@ function App() {
     ));
     if (hasFirebaseConfig && authUser && typeof tripId === 'string') {
       unassignTripDriver({ tripId }).catch(() => setDispatchStatus('Driver unassigned locally, but Firestore update failed.'));
+    }
+  }
+
+  function handleDispatchStatusChange(tripId, status) {
+    setTrips((current) => sortDispatcherTrips(current.map((t) => (
+      sameTripId(t.id, tripId) ? { ...t, status } : t
+    ))));
+    if (hasFirebaseConfig && authUser && typeof tripId === 'string') {
+      updateTripStatus({ tripId, status }).catch(() => setDispatchStatus('Trip status changed locally, but Firestore status update failed.'));
     }
   }
 
@@ -685,10 +740,13 @@ function App() {
             onDutyDrivers={onDutyDrivers}
             neighborhoodDrivers={neighborhoodDrivers}
             dispatchStatus={dispatchStatus}
+            dispatchTripsBusy={dispatchTripsBusy}
             loadDispatchDrivers={loadDispatchDrivers}
             loadNeighborhoodMap={loadNeighborhoodMap}
+            loadOpenTrips={loadOpenTrips}
             onAssignDriver={handleAssignDriver}
             onUnassignDriver={handleUnassignDriver}
+            onStatusChange={handleDispatchStatusChange}
           />
         )}
         {activeTab === 'admin' && isAdmin && (
@@ -1322,78 +1380,128 @@ function TripTab({
   );
 }
 
-function DispatchTab({ authUser, isDispatcher, trips, onDutyDrivers, neighborhoodDrivers, dispatchStatus, loadDispatchDrivers, loadNeighborhoodMap, onAssignDriver, onUnassignDriver }) {
+function DispatchTab({
+  authUser, isDispatcher, trips, onDutyDrivers, neighborhoodDrivers, dispatchStatus,
+  dispatchTripsBusy, loadDispatchDrivers, loadNeighborhoodMap, loadOpenTrips,
+  onAssignDriver, onUnassignDriver, onStatusChange,
+}) {
   const [selectedTripId, setSelectedTripId] = useState(null);
-  const needsDriver = trips.filter((t) => t.status === 'scheduled' && !t.assignedDriverUid);
-  const selectedTrip = trips.find((t) => sameTripId(t.id, selectedTripId));
+  const openTrips = sortDispatcherTrips(trips.filter((t) => ACTIVE_TRIP_STATUSES.includes(t.status || 'scheduled')));
+  const selectedTrip = openTrips.find((t) => sameTripId(t.id, selectedTripId));
+  const availableDrivers = useMemo(() => {
+    const byId = new Map();
+    [...onDutyDrivers, ...neighborhoodDrivers].forEach((driver) => {
+      const key = driver.uid || driver.id || driver.displayName;
+      if (key && !byId.has(key)) byId.set(key, driver);
+    });
+    return [...byId.values()];
+  }, [onDutyDrivers, neighborhoodDrivers]);
 
   return (
     <div className="tab-view">
       {!authUser && <p className="notes error" style={{ padding: '12px 16px' }}>Sign in to use the dispatch tools.</p>}
 
       {isDispatcher && (
-        <section className="panel dispatch-match" aria-label="Assign a Driver">
+        <section className="panel dispatch-match" aria-label="Dispatcher Trip Board">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Dispatcher</p>
-              <h2>Assign a Driver</h2>
+              <h2>Dispatcher Trip Board</h2>
             </div>
-            <button type="button" className="secondary" onClick={loadDispatchDrivers} disabled={!authUser}>
-              Refresh locations
-            </button>
+            <div className="button-row dispatch-actions">
+              <button type="button" className="secondary" onClick={loadOpenTrips} disabled={!authUser || dispatchTripsBusy}>
+                {dispatchTripsBusy ? 'Loading…' : 'Refresh Open Trips'}
+              </button>
+              <button type="button" className="secondary" onClick={loadDispatchDrivers} disabled={!authUser}>
+                Refresh Drivers
+              </button>
+            </div>
           </div>
-          <p className="notes">Select a trip, then tap a driver to assign them.</p>
+          <p className="notes">Open Firestore Trips from call intake. Immediate rides are highlighted and listed first.</p>
+          {dispatchStatus && <p className="notes" aria-live="polite">{dispatchStatus}</p>}
 
-          <h3 className="dispatch-section-label">Trips needing a driver</h3>
-          {needsDriver.length === 0
-            ? <p className="notes">All scheduled trips have been assigned.</p>
+          {openTrips.length === 0
+            ? <p className="notes">No open Trips are loaded.</p>
             : (
-              <div className="dispatch-trip-list">
-                {needsDriver.map((trip) => (
-                  <button
-                    key={trip.id}
-                    type="button"
-                    className={`dispatch-trip-card ${sameTripId(selectedTripId, trip.id) ? 'selected' : ''}`}
-                    onClick={() => setSelectedTripId(sameTripId(selectedTripId, trip.id) ? null : trip.id)}
-                  >
-                    <strong>{trip.neighborName}</strong>
-                    <span>{trip.purpose || 'Neighbor transport'}</span>
-                    <small>Pickup: {formatDateTime(trip.pickupTime)}</small>
-                    <small>{trip.pickupAddress}</small>
-                  </button>
-                ))}
+              <div className="trip-board-list">
+                {openTrips.map((trip) => {
+                  const isSelected = sameTripId(selectedTripId, trip.id);
+                  const assigned = Boolean(trip.assignedDriverUid || trip.assignedDriverName);
+                  return (
+                    <article key={trip.id} className={`trip-board-card ${trip.urgency === 'immediate' ? 'immediate' : ''} ${isSelected ? 'selected' : ''}`}>
+                      <div className="trip-board-main">
+                        <div className="trip-board-title-row">
+                          <div>
+                            <span className={`urgency-badge ${trip.urgency === 'immediate' ? 'immediate' : ''}`}>
+                              {trip.urgency === 'immediate' ? 'Immediate ride' : 'Scheduled appointment'}
+                            </span>
+                            <h3>{trip.neighborName || 'Unnamed rider'}</h3>
+                          </div>
+                          <span className={`status ${trip.status || 'scheduled'}`}>{formatStatus(trip.status || 'scheduled')}</span>
+                        </div>
+                        <div className="trip-board-grid">
+                          <TripBoardField label="Caller" value={[trip.callerName, trip.callerPhone].filter(Boolean).join(' · ') || 'Not recorded'} />
+                          <TripBoardField label="Relationship" value={formatRelationship(trip.callerRelationship)} />
+                          <TripBoardField label="Pickup" value={trip.pickupAddress || 'Not set'} detail={formatDateTime(trip.pickupTime)} />
+                          <TripBoardField label={trip.urgency === 'immediate' ? 'Drop-off' : 'Appointment'} value={trip.appointmentAddress || 'Not set'} detail={trip.urgency === 'immediate' && !trip.appointmentTime ? 'No appointment time required' : formatDateTime(trip.appointmentTime)} />
+                          <TripBoardField label="Purpose" value={trip.purpose || 'Neighbor transport'} />
+                          <TripBoardField label="Assigned driver" value={assigned ? (trip.assignedDriverName || 'Assigned') : 'Unassigned'} detail={trip.assignedDriverPhone || trip.assignedDriverVehicle || ''} />
+                        </div>
+                      </div>
+                      {isDispatcher && (
+                        <div className="trip-board-controls">
+                          <label>
+                            Status
+                            <select value={trip.status || 'scheduled'} onChange={(e) => onStatusChange(trip.id, e.target.value)}>
+                              <option value="scheduled">Scheduled</option>
+                              <option value="active">Active</option>
+                              <option value="pickup-arrived">Pickup arrived</option>
+                              <option value="appointment-arrived">Appointment arrived</option>
+                              <option value="returning">Returning</option>
+                              <option value="completed">Completed</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+                          </label>
+                          <button type="button" className={isSelected ? 'secondary' : ''} onClick={() => setSelectedTripId(isSelected ? null : trip.id)}>
+                            {isSelected ? 'Selected for Assignment' : 'Select to Assign'}
+                          </button>
+                          {assigned && (
+                            <button type="button" className="secondary" onClick={() => onUnassignDriver(trip.id)}>
+                              Unassign
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             )}
 
           {selectedTrip && (
-            <>
-              <h3 className="dispatch-section-label">On-duty drivers</h3>
-              {dispatchStatus && <p className="notes" aria-live="polite">{dispatchStatus}</p>}
-              {onDutyDrivers.length === 0
-                ? <p className="notes">No drivers on duty. Ask a driver to toggle On Duty in their Account tab.</p>
+            <div className="assignment-panel" aria-label="Assign selected trip">
+              <h3 className="dispatch-section-label">Assign driver to {selectedTrip.neighborName}</h3>
+              {availableDrivers.length === 0
+                ? <p className="notes">No drivers loaded. Refresh Drivers for on-duty drivers or Load Roster below.</p>
                 : (
                   <div className="dispatch-driver-list">
-                    {onDutyDrivers.map((driver) => (
-                      <div key={driver.id || driver.uid} className="dispatch-driver-card">
+                    {availableDrivers.map((driver) => (
+                      <div key={driver.id || driver.uid || driver.displayName} className="dispatch-driver-card">
                         <div className="dispatch-driver-info">
-                          <span className="on-duty-dot">●</span>
+                          {onDutyDrivers.some((d) => (d.uid || d.id) === (driver.uid || driver.id)) && <span className="on-duty-dot">●</span>}
                           <div>
                             <strong>{driver.displayName || 'Driver'}</strong>
                             <span>{[driver.vehicleYear, driver.vehicleMake, driver.vehicleModel].filter(Boolean).join(' ') || driver.vehicleDescription || 'Vehicle not set'}</span>
-                            <span>{driver.vehicleColor}{driver.wheelchairAccessible ? ' · ♿ accessible' : ''}</span>
                             <small>{driver.serviceArea || 'Area not set'} · seats: {driver.vehicleSeats || '?'}</small>
                             {driver.phone && <small>📞 {driver.phone}</small>}
-                            {driver.languagesSpoken && <small>🗣 {driver.languagesSpoken}</small>}
+                            {driver.availability && <small>{driver.availability}</small>}
                           </div>
                         </div>
                         <div className="dispatch-driver-actions">
                           {driver.lat && driver.lng && (
                             <a href={mapsUrl(driver.lat, driver.lng)} target="_blank" rel="noopener noreferrer" className="map-link">Map →</a>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => { onAssignDriver(selectedTripId, driver); setSelectedTripId(null); }}
-                          >
+                          <button type="button" onClick={() => { onAssignDriver(selectedTrip.id, driver); setSelectedTripId(null); }}>
                             Assign
                           </button>
                         </div>
@@ -1401,46 +1509,10 @@ function DispatchTab({ authUser, isDispatcher, trips, onDutyDrivers, neighborhoo
                     ))}
                   </div>
                 )}
-            </>
+            </div>
           )}
         </section>
       )}
-
-      <section className="panel" aria-label="Assigned Trips">
-        <div className="panel-heading">
-          <p className="eyebrow">Status</p>
-          <h2>Trip Assignments</h2>
-        </div>
-        <div className="mission-list">
-          {trips.map((trip) => (
-            <div key={trip.id} className="mission-card" style={{ display: 'grid', gap: 4 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 8 }}>
-                <div>
-                  <span className={`status ${trip.status}`}>{formatStatus(trip.status)}</span>
-                  <strong style={{ display: 'block', marginTop: 4 }}>{trip.neighborName}</strong>
-                  <span>{trip.purpose || 'Neighbor transport'}</span>
-                  <small style={{ display: 'block' }}>{formatDateTime(trip.pickupTime)}</small>
-                </div>
-                {trip.assignedDriverName && (
-                  <div className="assigned-driver-badge">
-                    <span>🚗 {trip.assignedDriverName}</span>
-                    {trip.assignedDriverPhone && <small>{trip.assignedDriverPhone}</small>}
-                    {trip.assignedDriverVehicle && <small>{trip.assignedDriverVehicle}</small>}
-                    {isDispatcher && (
-                      <button type="button" className="secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }} onClick={() => onUnassignDriver(trip.id)}>
-                        Unassign
-                      </button>
-                    )}
-                  </div>
-                )}
-                {!trip.assignedDriverName && (
-                  <span className="no-driver-badge">No driver</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section className="panel" aria-label="Neighborhood Driver Map">
         <div className="panel-heading">
@@ -1682,6 +1754,16 @@ function ProfileRow({ label, value }) {
   );
 }
 
+function TripBoardField({ label, value, detail = '' }) {
+  return (
+    <div className="trip-board-field">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {detail && <small>{detail}</small>}
+    </div>
+  );
+}
+
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -1702,6 +1784,15 @@ function formatDateTime(value) {
 
 function formatStatus(status) {
   return status.split('-').map((word) => word[0].toUpperCase() + word.slice(1)).join(' ');
+}
+
+function formatRelationship(value) {
+  const labels = {
+    church_member: 'Church member',
+    plain_neighbor: 'Plain neighbor',
+    other: 'Other',
+  };
+  return labels[value] || 'Not recorded';
 }
 
 function formToProfile(form) {

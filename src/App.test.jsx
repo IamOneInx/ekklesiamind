@@ -49,7 +49,7 @@ vi.mock('./firebase', () => ({
 const { registerMember, signInMember, signInWithGoogle, signOutMember } = authServiceMocks;
 const { getDriverProfile, saveDriverProfile } = driverProfileServiceMocks;
 const { loadOnDutyDrivers } = locationServiceMocks;
-const { createTrip, loadTripsForProfile } = tripServiceMocks;
+const { assignTripDriver, createTrip, loadTripsForProfile, updateTripStatus } = tripServiceMocks;
 
 const mockUser = { uid: 'user-1', displayName: 'Isaac Weaver', email: 'isaac@example.com' };
 const mockProfile = { role: 'driver', displayName: 'Isaac Weaver', vehicleDescription: 'Blue van', serviceArea: 'North Settlement', availability: 'Weekday mornings', mapOptIn: true };
@@ -157,6 +157,8 @@ describe('App — main app trip workflow', () => {
     loadOnDutyDrivers.mockResolvedValue([]);
     loadTripsForProfile.mockResolvedValue([]);
     createTrip.mockImplementation(({ trip }) => Promise.resolve({ id: 'saved-trip', ...trip, createdByUid: 'user-1' }));
+    assignTripDriver.mockResolvedValue({});
+    updateTripStatus.mockResolvedValue('active');
     authServiceMocks.subscribeAuthState.mockImplementation((cb) => {
       cb(mockUser);
       return () => {};
@@ -236,5 +238,81 @@ describe('App — main app trip workflow', () => {
     expect(screen.getByRole('heading', { name: /Trip Receipt/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Print Trip Receipt/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Donations are voluntary/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('loads Firestore open Trips into a dispatcher board with immediate rides first and caller phone visible', async () => {
+    const user = userEvent.setup();
+    getDriverProfile.mockResolvedValue({ role: 'dispatcher', membershipStatus: 'approved', displayName: 'Dora Dispatcher' });
+    loadTripsForProfile.mockResolvedValue([
+      {
+        id: 'scheduled-trip',
+        urgency: 'scheduled',
+        status: 'scheduled',
+        neighborName: 'Samuel King',
+        callerName: 'Lydia King',
+        callerPhone: '555-0101',
+        callerRelationship: 'church_member',
+        pickupAddress: 'King farm',
+        appointmentAddress: 'Clinic',
+        pickupTime: '2026-06-20T09:00',
+        appointmentTime: '2026-06-20T10:00',
+      },
+      {
+        id: 'immediate-trip',
+        urgency: 'immediate',
+        status: 'scheduled',
+        neighborName: 'Eli Yoder',
+        callerName: 'Anna Yoder',
+        callerPhone: '555-0199',
+        callerRelationship: 'plain_neighbor',
+        pickupAddress: 'Market Street store',
+        appointmentAddress: 'Yoder farm',
+        pickupTime: '2026-06-20T12:00',
+        appointmentTime: '',
+      },
+    ]);
+
+    await renderSignedIn();
+    await user.click(screen.getByRole('button', { name: 'Dispatch' }));
+    const board = await screen.findByRole('region', { name: /Dispatcher Trip Board/i });
+
+    expect(within(board).getByRole('heading', { name: /Dispatcher Trip Board/i })).toBeInTheDocument();
+    expect(within(board).getByText('555-0199', { exact: false })).toBeInTheDocument();
+    expect(within(board).getByText(/Plain neighbor/i)).toBeInTheDocument();
+    const boardText = board.textContent;
+    expect(boardText.indexOf('Eli Yoder')).toBeLessThan(boardText.indexOf('Samuel King'));
+    expect(within(board).getAllByText(/Immediate ride/i).length).toBeGreaterThanOrEqual(1);
+    expect(within(board).getByRole('button', { name: /Refresh Open Trips/i })).toBeInTheDocument();
+  });
+
+  it('lets a dispatcher assign a loaded driver and update Trip status from the board', async () => {
+    const user = userEvent.setup();
+    getDriverProfile.mockResolvedValue({ role: 'dispatcher', membershipStatus: 'approved', displayName: 'Dora Dispatcher' });
+    loadTripsForProfile.mockResolvedValue([
+      {
+        id: 'trip-to-assign', urgency: 'immediate', status: 'scheduled', neighborName: 'Eli Yoder', callerPhone: '555-0199',
+        callerRelationship: 'plain_neighbor', pickupAddress: 'Market Street store', appointmentAddress: 'Yoder farm', pickupTime: '2026-06-20T12:00', appointmentTime: '',
+      },
+    ]);
+    loadOnDutyDrivers.mockResolvedValue([
+      { uid: 'driver-1', displayName: 'Isaac Driver', phone: '555-0200', vehicleDescription: 'Blue van', serviceArea: 'North Settlement' },
+    ]);
+
+    await renderSignedIn();
+    await user.click(screen.getByRole('button', { name: 'Dispatch' }));
+    const board = await screen.findByRole('region', { name: /Dispatcher Trip Board/i });
+    await user.click(within(board).getByRole('button', { name: /Refresh Drivers/i }));
+    await user.click(within(board).getByRole('button', { name: /Select to Assign/i }));
+    await screen.findByText('Isaac Driver');
+    await user.click(screen.getByRole('button', { name: /^Assign$/i }));
+
+    expect(assignTripDriver).toHaveBeenCalledWith(expect.objectContaining({
+      tripId: 'trip-to-assign',
+      driver: expect.objectContaining({ uid: 'driver-1' }),
+    }));
+    expect(await within(board).findByText(/Isaac Driver/i)).toBeInTheDocument();
+
+    fireEvent.change(within(board).getByLabelText(/Status/i), { target: { value: 'active' } });
+    expect(updateTripStatus).toHaveBeenCalledWith({ tripId: 'trip-to-assign', status: 'active' });
   });
 });
