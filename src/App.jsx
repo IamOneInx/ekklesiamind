@@ -12,6 +12,7 @@ import { hasFirebaseConfig } from './firebase';
 import { checkRedirectResult, registerMember, signInMember, signInWithGoogle, signOutMember, subscribeAuthState } from './authService';
 import { ADMIN_EMAILS, getAllProfiles, getDriverProfile, loadNeighborhoodDrivers, saveDriverProfile, updateUserRole, updateUserStatus } from './driverProfileService';
 import { loadOnDutyDrivers, mapsUrl, updateDriverLocation, watchDriverLocation } from './locationService';
+import { assignTripDriver, createTrip, loadTripsForProfile, unassignTripDriver, updateTripStatus } from './tripService';
 import './App.css';
 
 // ─── Sample data ──────────────────────────────────────────────────────────────
@@ -68,9 +69,19 @@ const sampleTrips = [
 ];
 
 const blankTrip = {
+  callerName: '', callerPhone: '', callerRelationship: 'plain_neighbor', urgency: 'scheduled',
   neighborName: '', purpose: '', pickupAddress: '', appointmentAddress: '',
   pickupTime: '', appointmentTime: '', reminderMinutes: 30, returnNeeded: true, notes: '',
 };
+
+function localDateTimeValue(date = new Date()) {
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+function sameTripId(left, right) {
+  return String(left) === String(right);
+}
 
 const defaultDonationSettings = {
   mileageRate: 0.7,
@@ -139,6 +150,7 @@ function App() {
   const [trips, setTrips]           = useState(sampleTrips);
   const [selectedId, setSelectedId] = useState(sampleTrips[0].id);
   const [newTrip, setNewTrip]       = useState(blankTrip);
+  const [tripSaveStatus, setTripSaveStatus] = useState('');
   const [tripLog, setTripLog]       = useState({ startTime: '', endTime: '', startOdometer: '', endOdometer: '', donationAmount: '' });
   const [donationSettings, setDonationSettings] = useState(defaultDonationSettings);
   const [neighborhoodDrivers, setNeighborhoodDrivers] = useState([]);
@@ -159,6 +171,23 @@ function App() {
   const isApprovedMember = ['approved', 'active'].includes(profileStatus);
   const isDispatcher = isAdmin || (isApprovedMember && ['dispatcher', 'admin'].includes(userProfile?.role));
   const isApprovedDriver = isApprovedMember && userProfile?.role === 'driver';
+
+  useEffect(() => {
+    if (!hasFirebaseConfig || !authUser || !userProfile) return;
+    let cancelled = false;
+    loadTripsForProfile({ uid: authUser.uid, profile: userProfile, isAdmin })
+      .then((loadedTrips) => {
+        if (cancelled) return;
+        if (loadedTrips.length > 0) {
+          setTrips(loadedTrips);
+          setSelectedId(loadedTrips[0].id);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTripSaveStatus('Could not load saved trips. Local sample trips are still shown.');
+      });
+    return () => { cancelled = true; };
+  }, [authUser, userProfile, isAdmin]);
 
   // ── Auth listener ──────────────────────────────────────────────────────────
   useEffect(() => subscribeAuthState(async (user) => {
@@ -233,7 +262,7 @@ function App() {
   }, [isOnDuty, authUser, userProfile, isApprovedDriver]);
 
   // ── Computed values ────────────────────────────────────────────────────────
-  const selectedTrip = trips.find((t) => t.id === selectedId) ?? trips[0];
+  const selectedTrip = trips.find((t) => sameTripId(t.id, selectedId)) ?? trips[0];
   const action = selectedTrip ? getNextMissionAction(selectedTrip.status, selectedTrip.returnNeeded) : null;
   const report = useMemo(() => summarizeMissions(trips), [trips]);
   const previewMiles = selectedTrip?.miles || 20;
@@ -255,10 +284,45 @@ function App() {
   });
 
   // ── Trip handlers ──────────────────────────────────────────────────────────
-  function addTrip(event) {
+  async function addTrip(event) {
     event.preventDefault();
-    if (!newTrip.neighborName || !newTrip.pickupTime || !newTrip.appointmentTime) return;
-    const trip = { ...newTrip, id: Date.now(), status: 'scheduled', miles: 0, minutes: 0, donationAmount: 0 };
+    setTripSaveStatus('');
+    const isImmediate = newTrip.urgency === 'immediate';
+    if (!newTrip.neighborName || !newTrip.pickupAddress || (!isImmediate && (!newTrip.pickupTime || !newTrip.appointmentTime))) {
+      setTripSaveStatus(isImmediate
+        ? 'Enter at least the neighbor name and pickup address for an immediate ride.'
+        : 'Enter neighbor name, pickup address, pickup time, and appointment time.');
+      return;
+    }
+    const tripDraft = {
+      ...newTrip,
+      pickupTime: newTrip.pickupTime || (isImmediate ? localDateTimeValue() : ''),
+      appointmentTime: isImmediate ? newTrip.appointmentTime : newTrip.appointmentTime,
+      status: 'scheduled',
+      miles: 0,
+      minutes: 0,
+      donationAmount: 0,
+    };
+    let trip = { ...tripDraft, id: Date.now(), createdByUid: authUser?.uid || null };
+    if (hasFirebaseConfig && authUser) {
+      try {
+        trip = await createTrip({
+          createdByUid: authUser.uid,
+          createdByName: userProfile?.displayName || authUser.displayName || authUser.email || '',
+          createdByRole: userProfile?.role || (isAdmin ? 'admin' : 'driver'),
+          trip: tripDraft,
+        });
+        setTripSaveStatus('Trip saved to Firestore.');
+      } catch (error) {
+        setTripSaveStatus(`Could not save trip to Firestore: ${error.message || 'please try again.'}`);
+        return;
+      }
+    } else if (hasFirebaseConfig && !authUser) {
+      setTripSaveStatus('Sign in as an approved driver or dispatcher to save trips.');
+      return;
+    } else {
+      setTripSaveStatus('Trip added locally. Firebase is not configured.');
+    }
     setTrips((current) => [trip, ...current]);
     setSelectedId(trip.id);
     setNewTrip(blankTrip);
@@ -268,10 +332,15 @@ function App() {
   function advanceTrip() {
     if (!selectedTrip || !action) return;
     setTrips((current) => current.map((t) => {
-      if (t.id !== selectedTrip.id) return t;
+      if (!sameTripId(t.id, selectedTrip.id)) return t;
       if (action.nextStatus === 'active') return { ...t, status: 'active', actualStartTime: new Date().toISOString() };
       return { ...t, status: action.nextStatus };
     }));
+    if (hasFirebaseConfig && authUser && typeof selectedTrip.id === 'string') {
+      updateTripStatus({ tripId: selectedTrip.id, status: action.nextStatus }).catch(() => {
+        setTripSaveStatus('Trip changed locally, but Firestore status update failed.');
+      });
+    }
   }
 
   function completeWithTripLog(event) {
@@ -280,7 +349,7 @@ function App() {
     const miles = calculateMissionMiles(tripLog.startOdometer, tripLog.endOdometer);
     const minutes = calculateMissionMinutes(tripLog.startTime, tripLog.endTime);
     setTrips((current) => current.map((t) =>
-      t.id === selectedTrip.id
+      sameTripId(t.id, selectedTrip.id)
         ? { ...t, status: 'completed', miles, minutes, donationAmount: Number(tripLog.donationAmount) || 0, actualStartTime: tripLog.startTime, actualEndTime: tripLog.endTime }
         : t
     ));
@@ -334,17 +403,24 @@ function App() {
 
   // ── Trip assignment ─────────────────────────────────────────────────────────
   function handleAssignDriver(tripId, driver) {
+    const assignment = { assignedDriverUid: driver.uid, assignedDriverName: driver.displayName, assignedDriverPhone: driver.phone, assignedDriverVehicle: driver.vehicleDescription || `${driver.vehicleYear || ''} ${driver.vehicleMake || ''} ${driver.vehicleModel || ''}`.trim() };
     setTrips((current) => current.map((t) =>
-      t.id === tripId
-        ? { ...t, assignedDriverUid: driver.uid, assignedDriverName: driver.displayName, assignedDriverPhone: driver.phone, assignedDriverVehicle: driver.vehicleDescription || `${driver.vehicleYear || ''} ${driver.vehicleMake || ''} ${driver.vehicleModel || ''}`.trim() }
+      sameTripId(t.id, tripId)
+        ? { ...t, ...assignment }
         : t
     ));
+    if (hasFirebaseConfig && authUser && typeof tripId === 'string') {
+      assignTripDriver({ tripId, driver }).catch(() => setDispatchStatus('Driver assigned locally, but Firestore assignment failed.'));
+    }
   }
 
   function handleUnassignDriver(tripId) {
     setTrips((current) => current.map((t) =>
-      t.id === tripId ? { ...t, assignedDriverUid: null, assignedDriverName: null, assignedDriverPhone: null, assignedDriverVehicle: null } : t
+      sameTripId(t.id, tripId) ? { ...t, assignedDriverUid: null, assignedDriverName: null, assignedDriverPhone: null, assignedDriverVehicle: null } : t
     ));
+    if (hasFirebaseConfig && authUser && typeof tripId === 'string') {
+      unassignTripDriver({ tripId }).catch(() => setDispatchStatus('Driver unassigned locally, but Firestore update failed.'));
+    }
   }
 
   // ── Auth handlers ──────────────────────────────────────────────────────────
@@ -579,6 +655,7 @@ function App() {
             newTrip={newTrip}
             setNewTrip={setNewTrip}
             addTrip={addTrip}
+            tripSaveStatus={tripSaveStatus}
           />
         )}
         {activeTab === 'trip' && (
@@ -1054,7 +1131,8 @@ function HomeTab({ report, trips, setActiveTab, setSelectedId }) {
   );
 }
 
-function ScheduleTab({ trips, selectedId, setSelectedId, newTrip, setNewTrip, addTrip }) {
+function ScheduleTab({ trips, selectedId, setSelectedId, newTrip, setNewTrip, addTrip, tripSaveStatus }) {
+  const isImmediate = newTrip.urgency === 'immediate';
   return (
     <div className="tab-view">
       <section className="panel">
@@ -1066,7 +1144,7 @@ function ScheduleTab({ trips, selectedId, setSelectedId, newTrip, setNewTrip, ad
           {trips.map((trip) => (
             <button
               key={trip.id}
-              className={`mission-card ${trip.id === selectedId ? 'selected' : ''}`}
+              className={`mission-card ${sameTripId(trip.id, selectedId) ? 'selected' : ''}`}
               onClick={() => setSelectedId(trip.id)}
             >
               <span className={`status ${trip.status}`}>{formatStatus(trip.status)}</span>
@@ -1082,13 +1160,38 @@ function ScheduleTab({ trips, selectedId, setSelectedId, newTrip, setNewTrip, ad
         <div className="panel-heading">
           <p className="eyebrow">Intake</p>
           <h2>Schedule Apt</h2>
+          <p className="notes">Drivers and dispatchers can enter a Trip while taking a phone call, including an immediate ride.</p>
         </div>
         <form onSubmit={addTrip} className="form-grid" aria-label="Schedule Apt">
+          <Input label="Caller name" value={newTrip.callerName} onChange={(v) => setNewTrip({ ...newTrip, callerName: v })} />
+          <Input label="Caller phone" type="tel" value={newTrip.callerPhone} onChange={(v) => setNewTrip({ ...newTrip, callerPhone: v })} />
+          <label>
+            Ride urgency
+            <select
+              value={newTrip.urgency}
+              onChange={(e) => setNewTrip({
+                ...newTrip,
+                urgency: e.target.value,
+                pickupTime: e.target.value === 'immediate' ? (newTrip.pickupTime || localDateTimeValue()) : newTrip.pickupTime,
+              })}
+            >
+              <option value="scheduled">Scheduled appointment</option>
+              <option value="immediate">Immediate ride</option>
+            </select>
+          </label>
+          <label>
+            Relationship / member type
+            <select value={newTrip.callerRelationship} onChange={(e) => setNewTrip({ ...newTrip, callerRelationship: e.target.value })}>
+              <option value="church_member">Church member</option>
+              <option value="plain_neighbor">Plain neighbor</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
           <Input label="Neighbor name" value={newTrip.neighborName} onChange={(v) => setNewTrip({ ...newTrip, neighborName: v })} />
           <Input label="Purpose" value={newTrip.purpose} placeholder="Clinic appointment, store pickup…" onChange={(v) => setNewTrip({ ...newTrip, purpose: v })} />
           <Input label="Pickup address" value={newTrip.pickupAddress} onChange={(v) => setNewTrip({ ...newTrip, pickupAddress: v })} />
-          <Input label="Appointment address" value={newTrip.appointmentAddress} onChange={(v) => setNewTrip({ ...newTrip, appointmentAddress: v })} />
-          <Input label="Pickup time" type="datetime-local" value={newTrip.pickupTime} onChange={(v) => setNewTrip({ ...newTrip, pickupTime: v })} />
+          <Input label={isImmediate ? 'Drop-off address' : 'Appointment address'} value={newTrip.appointmentAddress} onChange={(v) => setNewTrip({ ...newTrip, appointmentAddress: v })} />
+          <Input label={isImmediate ? 'Pickup time (as soon as possible)' : 'Pickup time'} type="datetime-local" value={newTrip.pickupTime} onChange={(v) => setNewTrip({ ...newTrip, pickupTime: v })} />
           <Input label="Appointment time" type="datetime-local" value={newTrip.appointmentTime} onChange={(v) => setNewTrip({ ...newTrip, appointmentTime: v })} />
           <Input label="Reminder minutes" type="number" value={newTrip.reminderMinutes} onChange={(v) => setNewTrip({ ...newTrip, reminderMinutes: Number(v) })} />
           <label className="checkbox-row">
@@ -1099,7 +1202,8 @@ function ScheduleTab({ trips, selectedId, setSelectedId, newTrip, setNewTrip, ad
             Notes
             <textarea value={newTrip.notes} onChange={(e) => setNewTrip({ ...newTrip, notes: e.target.value })} placeholder="Wheelchair, wait during appointment, call ahead…" />
           </label>
-          <button type="submit" className="full">Add to Schedule</button>
+          {tripSaveStatus && <p className={`notes ${tripSaveStatus.startsWith('Could not') || tripSaveStatus.startsWith('Enter') || tripSaveStatus.startsWith('Sign in') ? 'error' : ''}`} aria-live="polite">{tripSaveStatus}</p>}
+          <button type="submit" className="full">Add Trip to Schedule</button>
         </form>
       </section>
     </div>
@@ -1118,7 +1222,7 @@ function TripTab({
         <section className="panel">
           <label>
             Select trip
-            <select value={selectedId} onChange={(e) => setSelectedId(Number(e.target.value))}>
+            <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
               {trips.map((t) => (
                 <option key={t.id} value={t.id}>{t.neighborName} — {formatStatus(t.status)}</option>
               ))}
@@ -1138,15 +1242,19 @@ function TripTab({
               <span className={`status ${selectedTrip.status}`}>{formatStatus(selectedTrip.status)}</span>
               <h3>{selectedTrip.neighborName}</h3>
               <p>{selectedTrip.purpose}</p>
+              {selectedTrip.urgency === 'immediate' && <p className="notes">Immediate ride requested by phone.</p>}
+              {(selectedTrip.callerName || selectedTrip.callerPhone) && (
+                <p className="notes">Caller: {[selectedTrip.callerName, selectedTrip.callerPhone].filter(Boolean).join(' · ')}</p>
+              )}
               <div className="route-line">
                 <span>Pickup</span>
                 <strong>{selectedTrip.pickupAddress}</strong>
                 <small>{formatDateTime(selectedTrip.pickupTime)}</small>
               </div>
               <div className="route-line">
-                <span>Appointment</span>
+                <span>{selectedTrip.urgency === 'immediate' ? 'Drop-off' : 'Appointment'}</span>
                 <strong>{selectedTrip.appointmentAddress}</strong>
-                <small>{formatDateTime(selectedTrip.appointmentTime)}</small>
+                <small>{selectedTrip.urgency === 'immediate' && !selectedTrip.appointmentTime ? 'No appointment time required' : formatDateTime(selectedTrip.appointmentTime)}</small>
               </div>
               <p className="notes">Reminder: {selectedTrip.reminderMinutes} minutes before pickup</p>
               <p className="notes">Notes: {selectedTrip.notes || 'No notes.'}</p>
@@ -1217,7 +1325,7 @@ function TripTab({
 function DispatchTab({ authUser, isDispatcher, trips, onDutyDrivers, neighborhoodDrivers, dispatchStatus, loadDispatchDrivers, loadNeighborhoodMap, onAssignDriver, onUnassignDriver }) {
   const [selectedTripId, setSelectedTripId] = useState(null);
   const needsDriver = trips.filter((t) => t.status === 'scheduled' && !t.assignedDriverUid);
-  const selectedTrip = trips.find((t) => t.id === selectedTripId);
+  const selectedTrip = trips.find((t) => sameTripId(t.id, selectedTripId));
 
   return (
     <div className="tab-view">
@@ -1245,8 +1353,8 @@ function DispatchTab({ authUser, isDispatcher, trips, onDutyDrivers, neighborhoo
                   <button
                     key={trip.id}
                     type="button"
-                    className={`dispatch-trip-card ${selectedTripId === trip.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedTripId(selectedTripId === trip.id ? null : trip.id)}
+                    className={`dispatch-trip-card ${sameTripId(selectedTripId, trip.id) ? 'selected' : ''}`}
+                    onClick={() => setSelectedTripId(sameTripId(selectedTripId, trip.id) ? null : trip.id)}
                   >
                     <strong>{trip.neighborName}</strong>
                     <span>{trip.purpose || 'Neighbor transport'}</span>

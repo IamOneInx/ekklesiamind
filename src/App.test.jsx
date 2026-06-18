@@ -29,13 +29,27 @@ const locationServiceMocks = vi.hoisted(() => ({
   mapsUrl: vi.fn((lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`),
 }));
 
+const tripServiceMocks = vi.hoisted(() => ({
+  assignTripDriver: vi.fn(),
+  createTrip: vi.fn(),
+  loadTripsForProfile: vi.fn(),
+  unassignTripDriver: vi.fn(),
+  updateTripStatus: vi.fn(),
+}));
+
 vi.mock('./authService', () => authServiceMocks);
 vi.mock('./driverProfileService', () => driverProfileServiceMocks);
 vi.mock('./locationService', () => locationServiceMocks);
+vi.mock('./tripService', () => tripServiceMocks);
+vi.mock('./firebase', () => ({
+  firebaseApp: { name: 'mock-app' },
+  hasFirebaseConfig: true,
+}));
 
 const { registerMember, signInMember, signInWithGoogle, signOutMember } = authServiceMocks;
 const { getDriverProfile, saveDriverProfile } = driverProfileServiceMocks;
 const { loadOnDutyDrivers } = locationServiceMocks;
+const { createTrip, loadTripsForProfile } = tripServiceMocks;
 
 const mockUser = { uid: 'user-1', displayName: 'Isaac Weaver', email: 'isaac@example.com' };
 const mockProfile = { role: 'driver', displayName: 'Isaac Weaver', vehicleDescription: 'Blue van', serviceArea: 'North Settlement', availability: 'Weekday mornings', mapOptIn: true };
@@ -50,6 +64,8 @@ describe('App — landing and auth', () => {
     getDriverProfile.mockResolvedValue(mockProfile);
     saveDriverProfile.mockResolvedValue(undefined);
     loadOnDutyDrivers.mockResolvedValue([]);
+    loadTripsForProfile.mockResolvedValue([]);
+    createTrip.mockImplementation(({ trip }) => Promise.resolve({ id: 'saved-trip', ...trip, createdByUid: 'user-1' }));
   });
 
   it('shows the landing page by default with Sign In and Join buttons', () => {
@@ -139,6 +155,8 @@ describe('App — main app trip workflow', () => {
     getDriverProfile.mockResolvedValue(mockProfile);
     saveDriverProfile.mockResolvedValue(undefined);
     loadOnDutyDrivers.mockResolvedValue([]);
+    loadTripsForProfile.mockResolvedValue([]);
+    createTrip.mockImplementation(({ trip }) => Promise.resolve({ id: 'saved-trip', ...trip, createdByUid: 'user-1' }));
     authServiceMocks.subscribeAuthState.mockImplementation((cb) => {
       cb(mockUser);
       return () => {};
@@ -171,9 +189,44 @@ describe('App — main app trip workflow', () => {
     await user.type(within(form).getByRole('textbox', { name: /Appointment address/i }), 'Town dental office');
     fireEvent.change(within(form).getByLabelText(/Pickup time/i), { target: { value: '2026-06-10T08:30' } });
     fireEvent.change(within(form).getByLabelText(/Appointment time/i), { target: { value: '2026-06-10T09:15' } });
-    await user.click(within(form).getByRole('button', { name: /Add to Schedule/i }));
+    await user.click(within(form).getByRole('button', { name: /Add Trip to Schedule/i }));
     const activePanel = screen.getByRole('region', { name: /active trip/i });
     expect(within(activePanel).getByText('Mary Beiler')).toBeInTheDocument();
+    expect(createTrip).toHaveBeenCalledWith(expect.objectContaining({
+      createdByUid: 'user-1',
+      trip: expect.objectContaining({ neighborName: 'Mary Beiler' }),
+    }));
+  });
+
+  it('schedules an immediate ride from a phone call without requiring appointment time', async () => {
+    const user = userEvent.setup();
+    createTrip.mockImplementation(({ trip }) => Promise.resolve({ id: 'immediate-trip', ...trip, createdByUid: 'user-1' }));
+    await renderSignedIn();
+    await user.click(screen.getByRole('button', { name: 'Schedule' }));
+    const form = screen.getByRole('form', { name: /Schedule Apt/i });
+    expect(screen.getByText(/enter a Trip while taking a phone call/i)).toBeInTheDocument();
+
+    await user.type(within(form).getByRole('textbox', { name: /Caller name/i }), 'Anna Yoder');
+    await user.type(within(form).getByRole('textbox', { name: /Caller phone/i }), '555-0199');
+    await user.selectOptions(within(form).getByLabelText(/Ride urgency/i), 'immediate');
+    await user.type(within(form).getByRole('textbox', { name: /Neighbor name/i }), 'Eli Yoder');
+    await user.type(within(form).getByRole('textbox', { name: /Purpose/i }), 'Ride home from town');
+    await user.type(within(form).getByRole('textbox', { name: /Pickup address/i }), 'Market Street store');
+    await user.type(within(form).getByRole('textbox', { name: /Drop-off address/i }), 'Yoder farm');
+    await user.click(within(form).getByRole('button', { name: /Add Trip to Schedule/i }));
+
+    expect(createTrip).toHaveBeenCalledWith(expect.objectContaining({
+      trip: expect.objectContaining({
+        callerName: 'Anna Yoder',
+        callerPhone: '555-0199',
+        urgency: 'immediate',
+        appointmentTime: '',
+      }),
+    }));
+    const activePanel = screen.getByRole('region', { name: /active trip/i });
+    expect(within(activePanel).getByText('Eli Yoder')).toBeInTheDocument();
+    expect(within(activePanel).getByText(/555-0199/)).toBeInTheDocument();
+    expect(within(activePanel).getByText(/No appointment time required/i)).toBeInTheDocument();
   });
 
   it('shows donation settings and receipt in the Trip tab', async () => {

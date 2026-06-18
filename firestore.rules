@@ -70,6 +70,146 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/driverProfiles/$(uid)).data.membershipStatus in ['approved', 'active'];
     }
 
+    function approvedProfileRole(uid, roles) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/driverProfiles/$(uid))
+        && get(/databases/$(database)/documents/driverProfiles/$(uid)).data.role in roles
+        && get(/databases/$(database)/documents/driverProfiles/$(uid)).data.membershipStatus in ['approved', 'active'];
+    }
+
+    function isApprovedDispatcherOrAdmin() {
+      return isAdmin() || approvedProfileRole(request.auth.uid, ['dispatcher', 'admin']);
+    }
+
+    function isApprovedDriverDispatcherOrAdmin() {
+      return isAdmin() || approvedProfileRole(request.auth.uid, ['driver', 'dispatcher', 'admin']);
+    }
+
+    function tripKeys() {
+      return [
+        'callerName', 'callerPhone', 'callerRelationship', 'urgency',
+        'neighborName', 'purpose', 'pickupAddress', 'appointmentAddress',
+        'pickupTime', 'appointmentTime', 'reminderMinutes', 'returnNeeded',
+        'notes', 'status', 'miles', 'minutes', 'donationAmount',
+        'assignedDriverUid', 'assignedDriverName', 'assignedDriverPhone', 'assignedDriverVehicle',
+        'createdByUid', 'createdByName', 'createdByRole', 'createdAt', 'updatedAt'
+      ];
+    }
+
+    function allowedTripStatuses() {
+      return ['scheduled', 'active', 'pickup-arrived', 'appointment-arrived', 'returning', 'completed', 'cancelled'];
+    }
+
+    function activeTripStatuses() {
+      return ['scheduled', 'active', 'pickup-arrived', 'appointment-arrived', 'returning'];
+    }
+
+    function assignmentKeys() {
+      return ['assignedDriverUid', 'assignedDriverName', 'assignedDriverPhone', 'assignedDriverVehicle'];
+    }
+
+    function validTripStrings(data) {
+      return data.callerName is string && data.callerName.size() <= 120
+        && data.callerPhone is string && data.callerPhone.size() <= 40
+        && data.neighborName is string && data.neighborName.size() > 0 && data.neighborName.size() <= 120
+        && data.purpose is string && data.purpose.size() <= 160
+        && data.pickupAddress is string && data.pickupAddress.size() > 0 && data.pickupAddress.size() <= 240
+        && data.appointmentAddress is string && data.appointmentAddress.size() <= 240
+        && data.pickupTime is string && data.pickupTime.size() <= 40
+        && data.appointmentTime is string && data.appointmentTime.size() <= 40
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdByUid is string && data.createdByUid.size() > 0 && data.createdByUid.size() <= 128
+        && data.createdByName is string && data.createdByName.size() <= 120;
+    }
+
+    function validTripNumbers(data) {
+      return data.reminderMinutes is number && data.reminderMinutes >= 0 && data.reminderMinutes <= 1440
+        && data.miles is number && data.miles >= 0 && data.miles <= 10000
+        && data.minutes is number && data.minutes >= 0 && data.minutes <= 10080
+        && data.donationAmount is number && data.donationAmount >= 0 && data.donationAmount <= 100000;
+    }
+
+    function validAssignedDriverFields(data) {
+      return (
+          data.assignedDriverUid == null
+          && data.assignedDriverName == null
+          && data.assignedDriverPhone == null
+          && data.assignedDriverVehicle == null
+        ) || (
+          isApprovedDispatcherOrAdmin()
+          && data.assignedDriverUid is string
+          && data.assignedDriverUid.size() > 0
+          && data.assignedDriverUid.size() <= 128
+          && approvedProfileRole(data.assignedDriverUid, ['driver'])
+          && (data.assignedDriverName == null || (data.assignedDriverName is string && data.assignedDriverName.size() <= 120))
+          && (data.assignedDriverPhone == null || (data.assignedDriverPhone is string && data.assignedDriverPhone.size() <= 40))
+          && (data.assignedDriverVehicle == null || (data.assignedDriverVehicle is string && data.assignedDriverVehicle.size() <= 160))
+        );
+    }
+
+    function validCreatorRole(data) {
+      return (isAdmin() && data.createdByRole in ['driver', 'dispatcher', 'admin'])
+        || (
+          exists(/databases/$(database)/documents/driverProfiles/$(request.auth.uid))
+          && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.role == data.createdByRole
+          && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.membershipStatus in ['approved', 'active']
+        );
+    }
+
+    function validTripShape(data) {
+      return data.keys().hasAll(tripKeys())
+        && data.keys().hasOnly(tripKeys())
+        && data.callerRelationship in ['church_member', 'plain_neighbor', 'other']
+        && data.urgency in ['scheduled', 'immediate']
+        && data.status in allowedTripStatuses()
+        && data.createdByRole in ['driver', 'dispatcher', 'admin']
+        && validCreatorRole(data)
+        && data.returnNeeded is bool
+        && validTripStrings(data)
+        && validTripNumbers(data)
+        && validAssignedDriverFields(data)
+        && (
+          data.urgency == 'immediate'
+          || (data.pickupTime.size() > 0 && data.appointmentTime.size() > 0)
+        );
+    }
+
+    function validTripCreate() {
+      return isApprovedDriverDispatcherOrAdmin()
+        && validTripShape(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.status in activeTripStatuses()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function canReadTrip() {
+      return isSignedIn() && (
+        isApprovedDispatcherOrAdmin()
+        || resource.data.createdByUid == request.auth.uid
+        || resource.data.assignedDriverUid == request.auth.uid
+      );
+    }
+
+    function validTripUpdate() {
+      return canReadTrip()
+        && request.resource.data.keys().hasAll(tripKeys())
+        && request.resource.data.keys().hasOnly(tripKeys())
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByName == resource.data.createdByName
+        && request.resource.data.createdByRole == resource.data.createdByRole
+        && request.resource.data.status in allowedTripStatuses()
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'assignedDriverUid', 'assignedDriverName', 'assignedDriverPhone', 'assignedDriverVehicle', 'updatedAt'
+        ])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(assignmentKeys())
+          || (isApprovedDispatcherOrAdmin() && validAssignedDriverFields(request.resource.data))
+        );
+    }
+
     match /driverProfiles/{uid} {
       allow read: if isSignedIn();
       allow create: if validOwnerCreate(uid) || (isAdmin() && hasNoSensitiveDocumentFields(request.resource.data));
@@ -90,6 +230,13 @@ service cloud.firestore {
         && (
           request.resource.data.isOnDuty == false || approvedActiveDriver(uid)
         );
+      allow delete: if false;
+    }
+
+    match /trips/{tripId} {
+      allow create: if validTripCreate();
+      allow get, list: if canReadTrip();
+      allow update: if validTripUpdate();
       allow delete: if false;
     }
   }
