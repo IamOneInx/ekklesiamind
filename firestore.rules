@@ -2,15 +2,94 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'iamoneinx@gmail.com' ||
+        request.auth.token.email == 'jspeters38@gmail.com' ||
+        request.auth.token.email == 'kbeal0007@gmail.com'
+      );
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function hasNoSensitiveDocumentFields(data) {
+      return !data.keys().hasAny([
+        'dlNumber', 'dlExpiry', 'dlCopyName', 'dlCopyUrl', 'dlCopyPath', 'dlCopyUploadedAt',
+        'insuranceProvider', 'insurancePolicyNumber', 'insuranceCost', 'insuranceCopyName',
+        'insuranceCopyUrl', 'insuranceCopyPath', 'insuranceCopyUploadedAt'
+      ]);
+    }
+
+    function validOwnerCreate(uid) {
+      return isOwner(uid)
+        && request.resource.data.uid == uid
+        && hasNoSensitiveDocumentFields(request.resource.data)
+        && (
+          (
+            isAdmin()
+            && request.resource.data.role == 'admin'
+            && request.resource.data.membershipStatus in ['approved', 'active']
+          ) || (
+            request.resource.data.role in ['member', 'driver']
+            && request.resource.data.membershipStatus == 'pending'
+          )
+        );
+    }
+
+    function ownerEditableProfileKeys() {
+      return [
+        'uid', 'displayName', 'email', 'phone',
+        'emergencyContactName', 'emergencyContactPhone',
+        'vehicleYear', 'vehicleMake', 'vehicleModel', 'vehicleColor', 'vehiclePlate',
+        'vehicleSeats', 'wheelchairAccessible', 'vehicleDescription',
+        'serviceArea', 'availability', 'languagesSpoken', 'specialCapabilities',
+        'hasInsurance', 'hasLicenseInfo', 'hasLicenseDocument', 'hasInsuranceDocument',
+        'insuranceShareForRate', 'mapOptIn', 'updatedAt'
+      ];
+    }
+
+    function validOwnerUpdate(uid) {
+      return isOwner(uid)
+        && resource.data.uid == uid
+        && request.resource.data.uid == uid
+        && hasNoSensitiveDocumentFields(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ownerEditableProfileKeys());
+    }
+
+    function approvedActiveDriver(uid) {
+      return exists(/databases/$(database)/documents/driverProfiles/$(uid))
+        && get(/databases/$(database)/documents/driverProfiles/$(uid)).data.role == 'driver'
+        && get(/databases/$(database)/documents/driverProfiles/$(uid)).data.mapOptIn == true
+        && get(/databases/$(database)/documents/driverProfiles/$(uid)).data.membershipStatus in ['approved', 'active'];
+    }
+
     match /driverProfiles/{uid} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.membershipStatus == 'pending-admin-approval'
-        && request.resource.data.membershipAgreementAccepted == true;
-      allow update: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.membershipStatus == resource.data.membershipStatus;
+      allow read: if isSignedIn();
+      allow create: if validOwnerCreate(uid) || (isAdmin() && hasNoSensitiveDocumentFields(request.resource.data));
+      allow update: if (isAdmin() && hasNoSensitiveDocumentFields(request.resource.data)) || validOwnerUpdate(uid);
+      allow delete: if false;
+    }
+
+    match /driverPrivateDocuments/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
+      allow delete: if false;
+    }
+
+    match /driverLocations/{uid} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'lat', 'lng', 'isOnDuty', 'displayName', 'serviceArea', 'vehicleDescription', 'updatedAt'])
+        && (
+          request.resource.data.isOnDuty == false || approvedActiveDriver(uid)
+        );
       allow delete: if false;
     }
   }

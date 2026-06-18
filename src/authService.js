@@ -1,6 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   getAuth,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -49,6 +50,17 @@ export async function signInWithGoogle() {
       return null;
     }
 
+    throw error;
+  }
+}
+
+export async function checkRedirectResult() {
+  if (!auth) return null;
+  try {
+    const result = await getRedirectResult(auth);
+    return result?.user || null;
+  } catch (error) {
+    if (['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(error?.code)) return null;
     throw error;
   }
 }

@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'iamoneinx@gmail.com' ||
+        request.auth.token.email == 'jspeters38@gmail.com' ||
+        request.auth.token.email == 'kbeal0007@gmail.com'
+      );
+    }
+
+    match /driverDocuments/{uid}/{documentKind}/{fileName} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && documentKind in ['license', 'insurance']
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+    }
+  }
+}
